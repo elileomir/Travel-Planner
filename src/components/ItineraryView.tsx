@@ -33,7 +33,9 @@ export default function ItineraryView({ itineraryData }: { itineraryData: any[] 
             id: String(index),
             day: dayStr,
             time: item.Time,
-            duration: parseInt(item.Duration) || 60,
+            duration: item.Duration && (item.Duration.toLowerCase().includes('hour') || item.Duration.toLowerCase().includes('hr'))
+                ? (parseFloat(item.Duration) * 60) || 60
+                : parseInt(item.Duration) || 60,
             activity: item.Activity,
             location: item.Location,
             cost: parseFloat(item['Cost per Person (₱)']) || 0,
