@@ -140,6 +140,7 @@ export default function ItineraryTimeline({
     const persistItems = (newItems: ItineraryItem[]) => {
         setItems(newItems);
         localStorage.setItem('custom_itinerary_items', JSON.stringify(newItems));
+        window.dispatchEvent(new Event('itineraryUpdated'));
     };
 
     const toggleVisited = (item: ItineraryItem) => {

@@ -2,10 +2,41 @@
 
 import { CloudSun, Sunrise, Sunset, Wind, MapPin, Calendar, Home, Umbrella, Thermometer, Info } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 export default function OverviewView() {
     const [showBudgetInfo, setShowBudgetInfo] = useState(false);
+    const [totalBudget, setTotalBudget] = useState(12500);
+
+    useEffect(() => {
+        const calculateTotal = () => {
+            const savedItinerary = localStorage.getItem('custom_itinerary_items');
+            if (savedItinerary) {
+                try {
+                    const items = JSON.parse(savedItinerary);
+                    const itineraryTotal = items.reduce((sum: number, item: any) => sum + (Number(item.cost) || 0), 0);
+                    // 12500 is the hardcoded Airbnb accommodation cost
+                    setTotalBudget(12500 + itineraryTotal);
+                } catch (e) {
+                    console.error("Error parsing itinerary for budget", e);
+                }
+            }
+        };
+
+        calculateTotal();
+
+        const handleStorage = (e: StorageEvent) => {
+            if (e.key === 'custom_itinerary_items') calculateTotal();
+        };
+
+        window.addEventListener('itineraryUpdated', calculateTotal);
+        window.addEventListener('storage', handleStorage);
+
+        return () => {
+            window.removeEventListener('itineraryUpdated', calculateTotal);
+            window.removeEventListener('storage', handleStorage);
+        };
+    }, []);
     return (
         <div className="p-4 md:p-8 space-y-6 max-w-5xl mx-auto w-full">
             <div className="flex flex-col md:flex-row gap-6">
@@ -89,9 +120,9 @@ export default function OverviewView() {
                                         <span className="font-semibold text-slate-700">Sun, Mar 22 • 12:00 PM</span>
                                     </div>
                                     <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1 border-t border-slate-200 mt-2 pt-3">
-                                        <span className="text-slate-500">Total Cost</span>
+                                        <span className="text-slate-500">Total Est. Budget</span>
                                         <div className="relative flex items-center justify-end gap-1">
-                                            <span className="font-bold text-emerald-600 text-base">₱12,500</span>
+                                            <span className="font-bold text-emerald-600 text-base">₱{totalBudget.toLocaleString()}</span>
                                             <button
                                                 onClick={(e) => {
                                                     e.stopPropagation();
@@ -108,9 +139,9 @@ export default function OverviewView() {
                                                         initial={{ opacity: 0, y: 5 }}
                                                         animate={{ opacity: 1, y: 0 }}
                                                         exit={{ opacity: 0, y: 5 }}
-                                                        className="absolute bottom-full right-0 mb-2 w-48 p-2.5 bg-slate-800 text-white text-[10px] rounded-lg shadow-xl z-50 font-normal leading-relaxed text-center"
+                                                        className="absolute bottom-full right-0 mb-2 w-56 p-2.5 bg-slate-800 text-white text-[10px] rounded-lg shadow-xl z-50 font-normal leading-relaxed text-center"
                                                     >
-                                                        This is an estimate based on online data. Actual prices may change.
+                                                        Includes fixed accommodation costs plus your itinerary activities. Actual prices may change.
                                                         <div className="absolute top-full right-6 -translate-x-1/2 border-[5px] border-transparent border-t-slate-800" />
                                                     </motion.div>
                                                 )}

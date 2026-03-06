@@ -61,7 +61,7 @@ export default function GeminiAssistant({ isFullScreen }: { isFullScreen?: boole
                             }`}
                     >
                         {msg.role === 'assistant' ? (
-                            <div className="prose prose-sm max-w-none prose-p:leading-relaxed prose-headings:font-semibold">
+                            <div className="prose prose-sm max-w-none prose-p:leading-relaxed prose-headings:font-semibold prose-table:block prose-table:overflow-x-auto prose-table:w-full break-words">
                                 <ReactMarkdown remarkPlugins={[remarkGfm]}>
                                     {msg.text}
                                 </ReactMarkdown>

@@ -36,8 +36,8 @@ export default function AppShell({
                 return <PlacesView foodData={foodData} spotsData={spotsData} />;
             case 'assistant':
                 return (
-                    <div className="max-w-3xl mx-auto flex-1 w-full py-6 px-4 flex flex-col">
-                        <div className="relative flex-1 w-full shadow-lg rounded-2xl overflow-hidden border border-slate-200 bg-white flex flex-col">
+                    <div className="max-w-3xl mx-auto flex-1 h-full w-full md:py-6 md:px-4 flex flex-col">
+                        <div className="relative flex-1 w-full h-full md:shadow-lg md:rounded-2xl overflow-hidden md:border md:border-slate-200 bg-white flex flex-col">
                             <GeminiAssistant isFullScreen />
                         </div>
                     </div>
@@ -87,7 +87,7 @@ export default function AppShell({
             </nav>
 
             {/* Main Content Area */}
-            <main className="flex-1 w-full max-w-7xl mx-auto pb-24 md:pb-0 relative flex flex-col min-h-screen md:min-h-[calc(100vh-4rem)]">
+            <main className={`flex-1 w-full max-w-7xl mx-auto relative flex flex-col ${activeTab === 'assistant' ? 'h-[calc(100dvh-4rem)] md:h-[calc(100vh-4rem)] overflow-hidden' : 'pb-24 md:pb-0 min-h-[100dvh] md:min-h-[calc(100vh-4rem)]'}`}>
                 <AnimatePresence mode="popLayout">
                     <motion.div
                         key={activeTab}
@@ -95,7 +95,7 @@ export default function AppShell({
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.98 }}
                         transition={{ duration: 0.2 }}
-                        className="w-full flex-1 flex flex-col"
+                        className={`w-full flex-1 flex flex-col ${activeTab === 'assistant' ? 'h-full' : ''}`}
                     >
                         {renderContent()}
                     </motion.div>
