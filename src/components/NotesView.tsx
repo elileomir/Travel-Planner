@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { NotebookText, CheckCircle2, Circle, Plus, Trash2, ShoppingBag } from 'lucide-react';
+import { NotebookText, CheckCircle2, Circle, Plus, Trash2, ShoppingBag, Loader2, Save } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 
 interface ShoppingItem {
     id: string;
@@ -15,30 +16,83 @@ export default function NotesView() {
     const [generalNotes, setGeneralNotes] = useState('');
     const [newItemText, setNewItemText] = useState('');
     const [isLoaded, setIsLoaded] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
+    const saveTimeoutRef = useRef<ReturnType<typeof setTimeout>>(null);
 
-    // Load from local storage on mount
+    const TRIP_ID = 'b3d81829-5735-46fd-bcc5-7dfb2e27be8e'; // Hardcoded for this personal app instance
+
+    // Load from Supabase on mount
     useEffect(() => {
-        const savedNotes = localStorage.getItem('custom_notes_data');
-        if (savedNotes) {
+        async function loadNotes() {
             try {
-                const parsed = JSON.parse(savedNotes);
-                if (parsed.shoppingList) setShoppingList(parsed.shoppingList);
-                if (parsed.generalNotes) setGeneralNotes(parsed.generalNotes);
-            } catch (e) {
-                console.error("Error loading notes", e);
+                const { data, error } = await supabase
+                    .from('trip_notes')
+                    .select('*')
+                    .eq('trip_id', TRIP_ID)
+                    .single();
+
+                if (error && error.code !== 'PGRST116') {
+                    // PGRST116 means zero rows, which is fine on first load
+                    console.error("Error loading notes from Supabase", error);
+                } else if (data) {
+                    if (data.shopping_list) setShoppingList(data.shopping_list);
+                    if (data.general_notes) setGeneralNotes(data.general_notes);
+                }
+            } catch (err) {
+                console.error("Unexpected error loading notes", err);
+            } finally {
+                setIsLoaded(true);
             }
         }
-        setIsLoaded(true);
+        loadNotes();
     }, []);
 
-    // Save to local storage on change
+    // Save to Supabase on change with debounce
     useEffect(() => {
         if (!isLoaded) return;
-        const dataToSave = {
-            shoppingList,
-            generalNotes
+
+        setIsSaving(true);
+        if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+
+        saveTimeoutRef.current = setTimeout(async () => {
+            try {
+                // Upsert logic based on trip_id
+                const { data: existingData } = await supabase
+                    .from('trip_notes')
+                    .select('id')
+                    .eq('trip_id', TRIP_ID)
+                    .single();
+
+                if (existingData) {
+                    // Update
+                    await supabase
+                        .from('trip_notes')
+                        .update({
+                            shopping_list: shoppingList,
+                            general_notes: generalNotes,
+                            updated_at: new Date().toISOString()
+                        })
+                        .eq('id', existingData.id);
+                } else {
+                    // Insert
+                    await supabase
+                        .from('trip_notes')
+                        .insert([{
+                            trip_id: TRIP_ID,
+                            shopping_list: shoppingList,
+                            general_notes: generalNotes
+                        }]);
+                }
+            } catch (error) {
+                console.error("Error saving notes to Supabase", error);
+            } finally {
+                setIsSaving(false);
+            }
+        }, 1000); // 1 second debounce
+
+        return () => {
+            if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
         };
-        localStorage.setItem('custom_notes_data', JSON.stringify(dataToSave));
     }, [shoppingList, generalNotes, isLoaded]);
 
     const handleAddItem = (e?: React.FormEvent) => {
@@ -70,14 +124,31 @@ export default function NotesView() {
             <div className="max-w-4xl mx-auto w-full space-y-8 pb-20 md:pb-0">
 
                 {/* Header */}
-                <div className="flex items-center gap-3 mb-6">
-                    <div className="bg-blue-100 text-blue-600 p-3 rounded-2xl shadow-sm">
-                        <NotebookText size={24} />
+                <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center gap-3">
+                        <div className="bg-blue-100 text-blue-600 p-3 rounded-2xl shadow-sm">
+                            <NotebookText size={24} />
+                        </div>
+                        <div>
+                            <h1 className="text-2xl font-bold text-slate-800">Trip Notes</h1>
+                            <p className="text-slate-500 text-sm">Shopping checklists and general thoughts</p>
+                        </div>
                     </div>
-                    <div>
-                        <h1 className="text-2xl font-bold text-slate-800">Trip Notes</h1>
-                        <p className="text-slate-500 text-sm">Shopping checklists and general thoughts</p>
-                    </div>
+                    {isLoaded && (
+                        <div className="flex items-center gap-2 text-xs font-medium px-3 py-1.5 rounded-full bg-white border border-slate-200 shadow-sm text-slate-500">
+                            {isSaving ? (
+                                <>
+                                    <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-500" />
+                                    <span>Saving to cloud...</span>
+                                </>
+                            ) : (
+                                <>
+                                    <Save className="w-3.5 h-3.5 text-emerald-500" />
+                                    <span>Saved to cloud</span>
+                                </>
+                            )}
+                        </div>
+                    )}
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -126,8 +197,8 @@ export default function NotesView() {
                                                 animate={{ opacity: 1, y: 0 }}
                                                 exit={{ opacity: 0, scale: 0.95 }}
                                                 className={`group flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer select-none ${item.completed
-                                                        ? 'bg-slate-50 border-transparent'
-                                                        : 'bg-white border-slate-200 hover:border-emerald-200 hover:shadow-sm'
+                                                    ? 'bg-slate-50 border-transparent'
+                                                    : 'bg-white border-slate-200 hover:border-emerald-200 hover:shadow-sm'
                                                     }`}
                                                 onClick={() => toggleItem(item.id)}
                                             >
