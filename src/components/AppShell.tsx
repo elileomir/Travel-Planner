@@ -1,17 +1,19 @@
 'use client';
 
 import { useState } from 'react';
-import { Compass, Calendar as CalendarIcon, Map as MapIcon, Sparkles } from 'lucide-react';
+import { Compass, Calendar as CalendarIcon, Map as MapIcon, Sparkles, NotebookText } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import GeminiAssistant from './GeminiAssistant';
 import OverviewView from './OverviewView';
 import ItineraryView from './ItineraryView';
 import PlacesView from './PlacesView';
+import NotesView from './NotesView';
 
 const tabs = [
     { id: 'overview', label: 'Overview', icon: Compass },
     { id: 'itinerary', label: 'Itinerary', icon: CalendarIcon },
     { id: 'places', label: 'Places to Visit', icon: MapIcon },
+    { id: 'notes', label: 'Notes', icon: NotebookText },
     { id: 'assistant', label: 'AI Assistant', icon: Sparkles },
 ];
 
@@ -34,6 +36,8 @@ export default function AppShell({
                 return <ItineraryView itineraryData={itineraryData} />;
             case 'places':
                 return <PlacesView foodData={foodData} spotsData={spotsData} />;
+            case 'notes':
+                return <NotesView />;
             case 'assistant':
                 return (
                     <div className="max-w-3xl mx-auto flex-1 h-full w-full md:py-6 md:px-4 flex flex-col min-h-0">
