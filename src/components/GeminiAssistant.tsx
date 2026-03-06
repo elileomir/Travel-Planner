@@ -2,6 +2,7 @@
 import { Sparkles, Send, Loader2 } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 type Message = { role: 'user' | 'assistant'; text: string };
 
@@ -61,7 +62,7 @@ export default function GeminiAssistant({ isFullScreen }: { isFullScreen?: boole
                     >
                         {msg.role === 'assistant' ? (
                             <div className="prose prose-sm max-w-none prose-p:leading-relaxed prose-headings:font-semibold">
-                                <ReactMarkdown>
+                                <ReactMarkdown remarkPlugins={[remarkGfm]}>
                                     {msg.text}
                                 </ReactMarkdown>
                             </div>
