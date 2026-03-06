@@ -19,6 +19,8 @@ export interface ItineraryItem {
     notes?: string;
     link?: string;
     actualDate: Date;
+    lat?: number;
+    lng?: number;
 }
 
 const parseTimeToMinutes = (timeStr: string) => {
@@ -239,7 +241,11 @@ export default function ItineraryTimeline({
     };
 
     const handleEditClick = (item: ItineraryItem) => {
-        setFormData({ ...item });
+        const editData = { ...item };
+        if (!editData.coordinates && editData.lng && editData.lat) {
+            editData.coordinates = [editData.lng, editData.lat];
+        }
+        setFormData(editData);
         setModalMode('edit');
         setIsModalOpen(true);
     };

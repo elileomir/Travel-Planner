@@ -60,9 +60,11 @@ export default function GeminiAssistant({ isFullScreen }: { isFullScreen?: boole
                             }`}
                     >
                         {msg.role === 'assistant' ? (
-                            <ReactMarkdown className="prose prose-sm max-w-none prose-p:leading-relaxed prose-headings:font-semibold">
-                                {msg.text}
-                            </ReactMarkdown>
+                            <div className="prose prose-sm max-w-none prose-p:leading-relaxed prose-headings:font-semibold">
+                                <ReactMarkdown>
+                                    {msg.text}
+                                </ReactMarkdown>
+                            </div>
                         ) : (
                             msg.text
                         )}
