@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { NotebookText, CheckCircle2, Circle, Plus, Trash2, ShoppingBag, Loader2, Save } from 'lucide-react';
+import { NotebookText, CheckCircle2, Circle, Plus, Trash2, ShoppingBag, Loader2, Save, Edit2, X, Check } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 interface ShoppingItem {
@@ -14,10 +14,13 @@ interface ShoppingItem {
 export default function NotesView() {
     const [shoppingList, setShoppingList] = useState<ShoppingItem[]>([]);
     const [generalNotes, setGeneralNotes] = useState('');
-    const [newItemText, setNewItemText] = useState('');
     const [isLoaded, setIsLoaded] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
+    const [newItemText, setNewItemText] = useState('');
+    const [editingItemId, setEditingItemId] = useState<string | null>(null);
+    const [editingItemText, setEditingItemText] = useState('');
     const saveTimeoutRef = useRef<ReturnType<typeof setTimeout>>(null);
+    const editInputRef = useRef<HTMLInputElement>(null);
 
     const TRIP_ID = 'b3d81829-5735-46fd-bcc5-7dfb2e27be8e'; // Hardcoded for this personal app instance
 
@@ -95,6 +98,13 @@ export default function NotesView() {
         };
     }, [shoppingList, generalNotes, isLoaded]);
 
+    // Handle focusing the edit input when it appears
+    useEffect(() => {
+        if (editingItemId && editInputRef.current) {
+            editInputRef.current.focus();
+        }
+    }, [editingItemId]);
+
     const handleAddItem = (e?: React.FormEvent) => {
         if (e) e.preventDefault();
         if (!newItemText.trim()) return;
@@ -117,6 +127,33 @@ export default function NotesView() {
 
     const deleteItem = (id: string) => {
         setShoppingList(shoppingList.filter(item => item.id !== id));
+        if (editingItemId === id) {
+            cancelEdit();
+        }
+    };
+
+    const startEditing = (item: ShoppingItem, e: React.MouseEvent) => {
+        e.stopPropagation();
+        setEditingItemId(item.id);
+        setEditingItemText(item.text);
+    };
+
+    const saveEdit = (id: string) => {
+        if (!editingItemText.trim()) {
+            deleteItem(id);
+            return;
+        }
+
+        setShoppingList(shoppingList.map(item =>
+            item.id === id ? { ...item, text: editingItemText.trim() } : item
+        ));
+        setEditingItemId(null);
+        setEditingItemText('');
+    };
+
+    const cancelEdit = () => {
+        setEditingItemId(null);
+        setEditingItemText('');
     };
 
     return (
@@ -196,32 +233,82 @@ export default function NotesView() {
                                                 initial={{ opacity: 0, y: 10 }}
                                                 animate={{ opacity: 1, y: 0 }}
                                                 exit={{ opacity: 0, scale: 0.95 }}
-                                                className={`group flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer select-none ${item.completed
+                                                className={`group flex items-center justify-between p-3 rounded-xl border transition-all select-none ${item.completed && editingItemId !== item.id
                                                     ? 'bg-slate-50 border-transparent'
-                                                    : 'bg-white border-slate-200 hover:border-emerald-200 hover:shadow-sm'
+                                                    : editingItemId === item.id
+                                                        ? 'bg-emerald-50/50 border-emerald-200'
+                                                        : 'bg-white border-slate-200 hover:border-emerald-200 hover:shadow-sm cursor-pointer'
                                                     }`}
-                                                onClick={() => toggleItem(item.id)}
+                                                onClick={() => {
+                                                    if (editingItemId !== item.id) {
+                                                        toggleItem(item.id);
+                                                    }
+                                                }}
                                             >
-                                                <div className="flex items-center gap-3 overflow-hidden">
-                                                    {item.completed ? (
-                                                        <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
-                                                    ) : (
-                                                        <Circle className="w-5 h-5 text-slate-300 shrink-0 group-hover:text-emerald-400 transition-colors" />
-                                                    )}
-                                                    <span className={`text-sm truncate transition-all ${item.completed ? 'text-slate-400 line-through' : 'text-slate-700 font-medium'
-                                                        }`}>
-                                                        {item.text}
-                                                    </span>
-                                                </div>
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        deleteItem(item.id);
-                                                    }}
-                                                    className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg opacity-0 lg:group-hover:opacity-100 transition-all focus:opacity-100"
-                                                >
-                                                    <Trash2 className="w-4 h-4" />
-                                                </button>
+                                                {editingItemId === item.id ? (
+                                                    <div className="flex-1 flex items-center gap-2">
+                                                        <input
+                                                            ref={editInputRef}
+                                                            type="text"
+                                                            value={editingItemText}
+                                                            onChange={(e) => setEditingItemText(e.target.value)}
+                                                            onKeyDown={(e) => {
+                                                                if (e.key === 'Enter') {
+                                                                    e.preventDefault();
+                                                                    saveEdit(item.id);
+                                                                } else if (e.key === 'Escape') {
+                                                                    cancelEdit();
+                                                                }
+                                                            }}
+                                                            className="flex-1 bg-white border border-emerald-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 w-full"
+                                                        />
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); saveEdit(item.id); }}
+                                                            className="p-1.5 text-emerald-600 hover:bg-emerald-100 rounded-lg transition-colors shrink-0"
+                                                        >
+                                                            <Check className="w-4 h-4" />
+                                                        </button>
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); cancelEdit(); }}
+                                                            className="p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 rounded-lg transition-colors shrink-0"
+                                                        >
+                                                            <X className="w-4 h-4" />
+                                                        </button>
+                                                    </div>
+                                                ) : (
+                                                    <>
+                                                        <div className="flex items-center gap-3 overflow-hidden">
+                                                            {item.completed ? (
+                                                                <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
+                                                            ) : (
+                                                                <Circle className="w-5 h-5 text-slate-300 shrink-0 group-hover:text-emerald-400 transition-colors" />
+                                                            )}
+                                                            <span className={`text-sm truncate transition-all ${item.completed ? 'text-slate-400 line-through' : 'text-slate-700 font-medium'
+                                                                }`}>
+                                                                {item.text}
+                                                            </span>
+                                                        </div>
+                                                        <div className="flex items-center gap-1 opacity-0 lg:group-hover:opacity-100 transition-all focus-within:opacity-100 shrink-0">
+                                                            <button
+                                                                onClick={(e) => startEditing(item, e)}
+                                                                className="p-1.5 text-slate-300 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+                                                                title="Edit item"
+                                                            >
+                                                                <Edit2 className="w-4 h-4" />
+                                                            </button>
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    deleteItem(item.id);
+                                                                }}
+                                                                className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                                                                title="Delete item"
+                                                            >
+                                                                <Trash2 className="w-4 h-4" />
+                                                            </button>
+                                                        </div>
+                                                    </>
+                                                )}
                                             </motion.div>
                                         ))
                                     )}
