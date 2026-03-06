@@ -1,9 +1,11 @@
 'use client';
 
-import { CloudSun, Sunrise, Sunset, Wind, MapPin, Calendar, Home, DollarSign, Umbrella, Thermometer, Info } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { CloudSun, Sunrise, Sunset, Wind, MapPin, Calendar, Home, Umbrella, Thermometer, Info } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useState } from 'react';
 
 export default function OverviewView() {
+    const [showBudgetInfo, setShowBudgetInfo] = useState(false);
     return (
         <div className="p-4 md:p-8 space-y-6 max-w-5xl mx-auto w-full">
             <div className="flex flex-col md:flex-row gap-6">
@@ -88,14 +90,31 @@ export default function OverviewView() {
                                     </div>
                                     <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1 border-t border-slate-200 mt-2 pt-3">
                                         <span className="text-slate-500">Total Cost</span>
-                                        <div className="group relative flex items-center justify-end gap-1 cursor-help">
+                                        <div className="relative flex items-center justify-end gap-1">
                                             <span className="font-bold text-emerald-600 text-base">₱12,500</span>
-                                            <Info className="w-3.5 h-3.5 text-emerald-500/70" />
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setShowBudgetInfo(!showBudgetInfo);
+                                                }}
+                                                className="p-1 rounded-full hover:bg-emerald-100 transition-colors cursor-pointer"
+                                            >
+                                                <Info className="w-3.5 h-3.5 text-emerald-500/80" />
+                                            </button>
 
-                                            <div className="absolute bottom-full right-0 mb-2 w-48 p-2 bg-slate-800 text-white text-[10px] rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all shadow-xl z-20 font-normal leading-relaxed text-center pointer-events-none">
-                                                This is an estimate based on online data. Actual prices may change.
-                                                <div className="absolute top-full right-4 -translate-x-1/2 border-[5px] border-transparent border-t-slate-800" />
-                                            </div>
+                                            <AnimatePresence>
+                                                {showBudgetInfo && (
+                                                    <motion.div
+                                                        initial={{ opacity: 0, y: 5 }}
+                                                        animate={{ opacity: 1, y: 0 }}
+                                                        exit={{ opacity: 0, y: 5 }}
+                                                        className="absolute bottom-full right-0 mb-2 w-48 p-2.5 bg-slate-800 text-white text-[10px] rounded-lg shadow-xl z-50 font-normal leading-relaxed text-center"
+                                                    >
+                                                        This is an estimate based on online data. Actual prices may change.
+                                                        <div className="absolute top-full right-6 -translate-x-1/2 border-[5px] border-transparent border-t-slate-800" />
+                                                    </motion.div>
+                                                )}
+                                            </AnimatePresence>
                                         </div>
                                     </div>
                                 </div>

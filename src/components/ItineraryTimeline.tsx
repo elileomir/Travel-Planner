@@ -1,6 +1,6 @@
 'use client';
 
-import { MapPin, Clock, GripVertical, CheckCircle2, ChevronDown, Map as MapIcon, Calendar, Trophy, Image as ImageIcon, MapPinned, Tent, Loader2, Info, Plus, Search, Trash2, Edit2, X, AlertCircle, Link as LinkIcon, Check, DollarSign, List } from 'lucide-react';
+import { MapPin, Clock, GripVertical, CheckCircle2, ChevronDown, Map as MapIcon, Calendar, Trophy, Image as ImageIcon, MapPinned, Tent, Loader2, Info, Plus, Search, Trash2, Edit2, X, AlertCircle, Link as LinkIcon, Check, List } from 'lucide-react';
 import { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -71,6 +71,9 @@ export default function ItineraryTimeline({
     // Delete Confirmation State
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [itemToDelete, setItemToDelete] = useState<string | null>(null);
+
+    // Active tooltip for mobile
+    const [activeTooltip, setActiveTooltip] = useState<string | null>(null);
 
     // Location Autocomplete State
     const [locationSuggestions, setLocationSuggestions] = useState<any[]>([]);
@@ -424,15 +427,31 @@ export default function ItineraryTimeline({
                         </div>
 
                         {item.cost > 0 && (
-                            <div className="group relative flex items-center gap-0.5 text-xs font-semibold text-emerald-700 cursor-help">
-                                <DollarSign className="w-3.5 h-3.5" />
+                            <div className="relative flex items-center gap-0.5 text-xs font-semibold text-emerald-700">
                                 ₱{item.cost}
-                                <Info className="w-2.5 h-2.5 text-emerald-500/70 ml-1" />
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setActiveTooltip(activeTooltip === item.id ? null : item.id);
+                                    }}
+                                    className="p-1 rounded-full hover:bg-emerald-100 transition-colors cursor-pointer"
+                                >
+                                    <Info className="w-3.5 h-3.5 text-emerald-500/80" />
+                                </button>
 
-                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-slate-800 text-white text-[10px] rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all shadow-xl z-20 font-normal leading-relaxed text-center pointer-events-none">
-                                    This is an estimate based on online data. Actual prices may change.
-                                    <div className="absolute top-full left-1/2 -translate-x-1/2 border-[5px] border-transparent border-t-slate-800" />
-                                </div>
+                                <AnimatePresence>
+                                    {activeTooltip === item.id && (
+                                        <motion.div
+                                            initial={{ opacity: 0, y: 5 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            exit={{ opacity: 0, y: 5 }}
+                                            className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2.5 bg-slate-800 text-white text-[10px] rounded-lg shadow-xl z-50 font-normal leading-relaxed text-center"
+                                        >
+                                            This is an estimate based on online data. Actual prices may change.
+                                            <div className="absolute top-full left-1/2 -translate-x-1/2 border-[5px] border-transparent border-t-slate-800" />
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
                             </div>
                         )}
                     </div>
