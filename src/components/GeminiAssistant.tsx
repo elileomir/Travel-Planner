@@ -1,12 +1,12 @@
 'use client';
-import { Sparkles, Send, Loader2 } from 'lucide-react';
+import { Sparkles, Send, Loader2, X } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
 type Message = { role: 'user' | 'assistant'; text: string };
 
-export default function GeminiAssistant({ isFullScreen }: { isFullScreen?: boolean }) {
+export default function GeminiAssistant({ isFullScreen, onClose }: { isFullScreen?: boolean, onClose?: () => void }) {
     const [input, setInput] = useState('');
     const [loading, setLoading] = useState(false);
     const [messages, setMessages] = useState<Message[]>([
@@ -46,9 +46,19 @@ export default function GeminiAssistant({ isFullScreen }: { isFullScreen?: boole
 
     return (
         <div className={isFullScreen ? "flex flex-col w-full h-full bg-white min-h-0" : "fixed bottom-20 md:bottom-6 right-4 md:right-6 w-[calc(100vw-2rem)] md:w-96 bg-white/90 backdrop-blur-xl border border-slate-200 rounded-2xl shadow-2xl overflow-hidden flex flex-col z-50 transition-all min-h-0"}>
-            <div className="p-4 border-b border-blue-100 flex items-center gap-2 bg-gradient-to-r from-blue-50 to-blue-100/50 shrink-0">
-                <Sparkles className="w-5 h-5 text-blue-600" />
-                <h3 className="font-semibold text-blue-900">AI Travel Assistant</h3>
+            <div className="p-4 border-b border-blue-100 flex items-center justify-between bg-gradient-to-r from-blue-50 to-blue-100/50 shrink-0">
+                <div className="flex items-center gap-2">
+                    <Sparkles className="w-5 h-5 text-blue-600" />
+                    <h3 className="font-semibold text-blue-900">AI Travel Assistant</h3>
+                </div>
+                {onClose && (
+                    <button
+                        onClick={onClose}
+                        className="p-1.5 rounded-full hover:bg-blue-200/50 text-blue-700 transition-colors"
+                    >
+                        <X className="w-4 h-4" />
+                    </button>
+                )}
             </div>
 
             <div className={isFullScreen ? "flex-1 overflow-y-auto min-h-0 p-4 flex flex-col gap-4 bg-slate-50/50" : "p-4 h-80 overflow-y-auto flex flex-col gap-4 bg-slate-50/50"}>

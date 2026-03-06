@@ -14,8 +14,9 @@ const tabs = [
     { id: 'itinerary', label: 'Itinerary', icon: CalendarIcon },
     { id: 'places', label: 'Places to Visit', icon: MapIcon },
     { id: 'notes', label: 'Notes', icon: NotebookText },
-    { id: 'assistant', label: 'AI Assistant', icon: Sparkles },
 ];
+
+const assistantTab = { id: 'assistant', label: 'AI', icon: Sparkles };
 
 export default function AppShell({
     itineraryData,
@@ -27,6 +28,7 @@ export default function AppShell({
     spotsData: any[];
 }) {
     const [activeTab, setActiveTab] = useState('overview');
+    const [isAssistantOpen, setIsAssistantOpen] = useState(false);
 
     const renderContent = () => {
         switch (activeTab) {
@@ -38,14 +40,6 @@ export default function AppShell({
                 return <PlacesView foodData={foodData} spotsData={spotsData} />;
             case 'notes':
                 return <NotesView />;
-            case 'assistant':
-                return (
-                    <div className="max-w-3xl mx-auto flex-1 h-full w-full md:py-6 md:px-4 flex flex-col min-h-0">
-                        <div className="relative flex-1 w-full h-full md:shadow-lg md:rounded-2xl overflow-hidden md:border md:border-slate-200 bg-white flex flex-col min-h-0">
-                            <GeminiAssistant isFullScreen />
-                        </div>
-                    </div>
-                );
             default:
                 return null;
         }
@@ -70,7 +64,10 @@ export default function AppShell({
                             return (
                                 <button
                                     key={tab.id}
-                                    onClick={() => setActiveTab(tab.id)}
+                                    onClick={() => {
+                                        setActiveTab(tab.id);
+                                        setIsAssistantOpen(false);
+                                    }}
                                     className={`relative flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${isActive ? 'text-blue-700 font-semibold' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
                                         }`}
                                 >
@@ -86,12 +83,21 @@ export default function AppShell({
                                 </button>
                             );
                         })}
+                        {/* Desktop Assistant Toggle */}
+                        <button
+                            onClick={() => setIsAssistantOpen(!isAssistantOpen)}
+                            className={`relative flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${isAssistantOpen ? 'text-blue-700 font-semibold bg-blue-50' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                                }`}
+                        >
+                            <Sparkles size={18} className={isAssistantOpen ? 'text-blue-600' : 'text-slate-400'} />
+                            <span className="z-10 relative">AI Assistant</span>
+                        </button>
                     </div>
                 </div>
             </nav>
 
             {/* Main Content Area */}
-            <main className={`flex-1 w-full max-w-7xl mx-auto relative flex flex-col min-h-0 ${activeTab === 'assistant' ? 'h-[calc(100dvh-4rem)] md:h-[calc(100vh-4rem)] overflow-hidden' : 'pb-24 md:pb-0 min-h-[100dvh] md:min-h-[calc(100vh-4rem)]'}`}>
+            <main className="flex-1 w-full max-w-7xl mx-auto relative flex flex-col min-h-0 pb-24 md:pb-0 min-h-[100dvh] md:min-h-[calc(100vh-4rem)]">
                 <AnimatePresence mode="popLayout">
                     <motion.div
                         key={activeTab}
@@ -99,10 +105,28 @@ export default function AppShell({
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.98 }}
                         transition={{ duration: 0.2 }}
-                        className={`w-full flex-1 flex flex-col min-h-0 ${activeTab === 'assistant' ? 'h-full' : ''}`}
+                        className="w-full flex-1 flex flex-col min-h-0"
                     >
                         {renderContent()}
                     </motion.div>
+                </AnimatePresence>
+
+                {/* Floating AI Assistant Dialog */}
+                <AnimatePresence>
+                    {isAssistantOpen && (
+                        <motion.div
+                            initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: 20, scale: 0.95 }}
+                            transition={{ type: "spring", bounce: 0.25, duration: 0.5 }}
+                            className="fixed md:absolute bottom-20 md:bottom-6 right-4 left-4 md:left-auto md:right-6 md:w-96 z-[60] shadow-2xl rounded-2xl overflow-hidden border border-slate-200"
+                        >
+                            <GeminiAssistant
+                                isFullScreen={false}
+                                onClose={() => setIsAssistantOpen(false)}
+                            />
+                        </motion.div>
+                    )}
                 </AnimatePresence>
             </main>
 
@@ -115,7 +139,10 @@ export default function AppShell({
                         return (
                             <button
                                 key={tab.id}
-                                onClick={() => setActiveTab(tab.id)}
+                                onClick={() => {
+                                    setActiveTab(tab.id);
+                                    setIsAssistantOpen(false);
+                                }}
                                 className={`relative flex flex-col items-center justify-center w-full h-full gap-1 ${isActive ? 'text-blue-600' : 'text-slate-500'
                                     }`}
                             >
@@ -133,6 +160,24 @@ export default function AppShell({
                             </button>
                         );
                     })}
+                    {/* Mobile Assistant Toggle */}
+                    <button
+                        onClick={() => setIsAssistantOpen(!isAssistantOpen)}
+                        className={`relative flex flex-col items-center justify-center w-full h-full gap-1 ${isAssistantOpen ? 'text-blue-600' : 'text-slate-500'
+                            }`}
+                    >
+                        <div className="relative">
+                            <Sparkles size={22} className={isAssistantOpen ? 'text-blue-600' : 'text-slate-400'} />
+                            {isAssistantOpen && (
+                                <motion.div
+                                    layoutId="mobileNavIndicatorAssistant"
+                                    className="absolute -inset-2 bg-blue-50 rounded-full -z-10"
+                                    transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                                />
+                            )}
+                        </div>
+                        <span className={`text-[10px] ${isAssistantOpen ? 'font-semibold' : 'font-medium'}`}>AI Chat</span>
+                    </button>
                 </div>
             </nav>
         </div>

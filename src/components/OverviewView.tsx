@@ -120,7 +120,7 @@ export default function OverviewView() {
                                     <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1 border-t border-slate-200 mt-2 pt-3">
                                         <div className="flex flex-col">
                                             <span className="text-slate-500 font-medium">Itinerary Budget</span>
-                                            <span className="text-[10px] text-slate-400 italic">Excludes flights & accommodation</span>
+                                            <span className="text-[10px] text-slate-400 italic">Excludes accommodation</span>
                                         </div>
                                         <div className="flex items-center justify-end">
                                             <span className="font-bold text-emerald-600 text-lg">₱{totalBudget.toLocaleString()}</span>
