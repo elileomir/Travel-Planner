@@ -277,7 +277,7 @@ export default function NotesView() {
                                                     </div>
                                                 ) : (
                                                     <>
-                                                        <div className="flex items-center gap-3 overflow-hidden">
+                                                        <div className="flex items-center flex-1 gap-3 overflow-hidden">
                                                             {item.completed ? (
                                                                 <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
                                                             ) : (
@@ -288,7 +288,7 @@ export default function NotesView() {
                                                                 {item.text}
                                                             </span>
                                                         </div>
-                                                        <div className="flex items-center gap-1 opacity-0 lg:group-hover:opacity-100 transition-all focus-within:opacity-100 shrink-0">
+                                                        <div className="flex items-center gap-1 lg:opacity-0 lg:group-hover:opacity-100 transition-all focus-within:opacity-100 shrink-0">
                                                             <button
                                                                 onClick={(e) => startEditing(item, e)}
                                                                 className="p-1.5 text-slate-300 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
