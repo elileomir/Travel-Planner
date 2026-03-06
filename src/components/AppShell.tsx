@@ -36,8 +36,8 @@ export default function AppShell({
                 return <PlacesView foodData={foodData} spotsData={spotsData} />;
             case 'assistant':
                 return (
-                    <div className="max-w-3xl mx-auto h-[calc(100vh-8rem)] md:h-[calc(100vh-5rem)] py-6 px-4">
-                        <div className="relative w-full h-full shadow-lg rounded-2xl overflow-hidden border border-slate-200 bg-white flex flex-col">
+                    <div className="max-w-3xl mx-auto flex-1 w-full py-6 px-4 flex flex-col">
+                        <div className="relative flex-1 w-full shadow-lg rounded-2xl overflow-hidden border border-slate-200 bg-white flex flex-col">
                             <GeminiAssistant isFullScreen />
                         </div>
                     </div>

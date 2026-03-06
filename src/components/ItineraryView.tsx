@@ -44,9 +44,9 @@ export default function ItineraryView({ itineraryData }: { itineraryData: any[] 
     });
 
     return (
-        <div className="flex flex-col md:flex-row w-full h-full relative overflow-hidden bg-slate-50">
+        <div className="flex flex-col md:flex-row w-full flex-1 relative overflow-hidden bg-slate-50">
             {/* Left Panel: Itinerary Details */}
-            <div className={`w-full md:w-[600px] flex flex-col bg-white border-r border-slate-200 h-[calc(100vh-12rem)] md:h-[calc(100vh-4rem)] relative z-20 ${activeItem ? 'hidden md:flex' : 'flex'}`}>
+            <div className={`w-full md:w-[600px] flex flex-col bg-white border-r border-slate-200 flex-1 relative z-20 ${activeItem ? 'hidden md:flex' : 'flex'}`}>
                 <ItineraryTimeline
                     initialItems={formattedItems}
                     onShowMap={(location) => {
@@ -57,7 +57,7 @@ export default function ItineraryView({ itineraryData }: { itineraryData: any[] 
             </div>
 
             {/* Right Panel: Lazy Map (Only visible occasionally or on desktop) */}
-            <div className={`flex-1 relative h-[calc(100vh-12rem)] md:h-[calc(100vh-4rem)] ${activeItem ? 'block' : 'hidden'} md:block bg-slate-100 flex items-center justify-center`}>
+            <div className={`flex-1 relative ${activeItem ? 'flex' : 'hidden'} md:flex bg-slate-100 items-center justify-center`}>
 
                 {!activeItem && (
                     <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-400 bg-slate-100/50 backdrop-blur-sm z-10 px-8 text-center">

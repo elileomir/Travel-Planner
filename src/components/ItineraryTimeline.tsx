@@ -372,7 +372,7 @@ export default function ItineraryTimeline({
                                     {item.activity}
                                 </h4>
                                 {/* Mini Edit/Delete Buttons, hidden until hover */}
-                                <div className="flex opacity-0 group-hover:opacity-100 transition-opacity gap-1 ml-2">
+                                <div className="flex opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity gap-1 ml-2">
                                     <button onClick={() => handleEditClick(item)} className="p-1 rounded bg-slate-100 text-slate-500 hover:text-blue-600 hover:bg-blue-50">
                                         <Edit2 className="w-3.5 h-3.5" />
                                     </button>
