@@ -45,13 +45,13 @@ export default function GeminiAssistant({ isFullScreen }: { isFullScreen?: boole
     };
 
     return (
-        <div className={isFullScreen ? "flex flex-col w-full h-full bg-white" : "fixed bottom-20 md:bottom-6 right-4 md:right-6 w-[calc(100vw-2rem)] md:w-96 bg-white/90 backdrop-blur-xl border border-slate-200 rounded-2xl shadow-2xl overflow-hidden flex flex-col z-50 transition-all"}>
-            <div className="p-4 border-b border-blue-100 flex items-center gap-2 bg-gradient-to-r from-blue-50 to-blue-100/50">
+        <div className={isFullScreen ? "flex flex-col w-full h-full bg-white min-h-0" : "fixed bottom-20 md:bottom-6 right-4 md:right-6 w-[calc(100vw-2rem)] md:w-96 bg-white/90 backdrop-blur-xl border border-slate-200 rounded-2xl shadow-2xl overflow-hidden flex flex-col z-50 transition-all min-h-0"}>
+            <div className="p-4 border-b border-blue-100 flex items-center gap-2 bg-gradient-to-r from-blue-50 to-blue-100/50 shrink-0">
                 <Sparkles className="w-5 h-5 text-blue-600" />
                 <h3 className="font-semibold text-blue-900">AI Travel Assistant</h3>
             </div>
 
-            <div className={isFullScreen ? "flex-1 overflow-y-auto p-4 flex flex-col gap-4 bg-slate-50/50" : "p-4 h-80 overflow-y-auto flex flex-col gap-4 bg-slate-50/50"}>
+            <div className={isFullScreen ? "flex-1 overflow-y-auto min-h-0 p-4 flex flex-col gap-4 bg-slate-50/50" : "p-4 h-80 overflow-y-auto flex flex-col gap-4 bg-slate-50/50"}>
                 {messages.map((msg, idx) => (
                     <div
                         key={idx}
@@ -80,7 +80,7 @@ export default function GeminiAssistant({ isFullScreen }: { isFullScreen?: boole
                 <div ref={messagesEndRef} />
             </div>
 
-            <div className="p-3 border-t border-slate-200 bg-white">
+            <div className="p-3 border-t border-slate-200 bg-white shrink-0">
                 <div className="relative">
                     <input
                         type="text"
