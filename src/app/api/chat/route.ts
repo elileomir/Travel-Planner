@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 
 export async function POST(req: Request) {
     try {
-        const { message } = await req.json();
+        const { message, itineraryContext } = await req.json();
 
         if (!process.env.GEMINI_API_KEY) {
             return NextResponse.json({ error: "Gemini API key not configured" }, { status: 500 });
@@ -12,9 +12,16 @@ export async function POST(req: Request) {
         const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
         const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
 
-        const prompt = `You are a helpful and knowledgeable travel assistant specifically for a trip to Baguio City, Philippines.
-The user is traveling with one companion from March 19 to 22. 
-Answer the following question or request clearly, concisely, and accurately:
+        const contextString = itineraryContext
+            ? `Here is the user's CURRENT itinerary data in JSON format:\n${JSON.stringify(itineraryContext, null, 2)}`
+            : "No itinerary data provided yet.";
+
+        const prompt = `You are a helpful and knowledgeable travel assistant specifically for a trip to Baguio City and La Union, Philippines.
+The user is traveling with one companion from March 19 to 25. 
+
+${contextString}
+
+Answer the following question or request clearly, concisely, and accurately based on the itinerary provided above. If the user asks about their schedule, look at the itinerary JSON.
 User: ${message}`;
 
         const result = await model.generateContent(prompt);

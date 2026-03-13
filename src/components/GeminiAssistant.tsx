@@ -27,10 +27,17 @@ export default function GeminiAssistant({ isFullScreen, onClose }: { isFullScree
         setLoading(true);
 
         try {
+            // Send current itinerary data from local storage if available
+            const savedItinerary = localStorage.getItem('itinerary-data');
+            const itineraryContext = savedItinerary ? JSON.parse(savedItinerary) : null;
+
             const res = await fetch('/api/chat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message: userMessage })
+                body: JSON.stringify({
+                    message: userMessage,
+                    itineraryContext
+                })
             });
             const data = await res.json();
 
