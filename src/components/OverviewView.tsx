@@ -1,6 +1,6 @@
 'use client';
 
-import { CloudSun, Sunrise, Sunset, Wind, MapPin, Calendar, Home, Umbrella, Thermometer, Info } from 'lucide-react';
+import { CloudSun, Sunrise, Sunset, Wind, MapPin, Calendar, Home, Umbrella, Thermometer, Info, Edit2, Trash2, Plus, Check, X, Link as LinkIcon } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
@@ -10,18 +10,76 @@ const TRIP_ID = 'b3d81829-5735-46fd-bcc5-7dfb2e27be8e';
 export default function OverviewView() {
     const [totalBudget, setTotalBudget] = useState(12500);
 
+    // Multi-location accommodations state
+    const [baguioAcc, setBaguioAcc] = useState<{ link: string, name: string } | null>(null);
+    const [luAcc, setLuAcc] = useState<{ link: string, name: string } | null>(null);
+
+    // UI states
+    const [isEditingBaguio, setIsEditingBaguio] = useState(false);
+    const [baguioTempLink, setBaguioTempLink] = useState('');
+    const [isEditingLu, setIsEditingLu] = useState(false);
+    const [luTempLink, setLuTempLink] = useState('');
+
+    const getSmartName = (url: string) => {
+        const lower = url.toLowerCase();
+        if (lower.includes('airbnb')) return 'Airbnb Booking';
+        if (lower.includes('agoda')) return 'Agoda Booking';
+        if (lower.includes('booking.com')) return 'Booking.com';
+        if (lower.includes('expedia')) return 'Expedia Booking';
+        return 'Accommodation Link';
+    };
+
+    const saveAccommodations = async (baguio: any, lu: any) => {
+        const payload = { baguio, laUnion: lu };
+        setBaguioAcc(baguio);
+        setLuAcc(lu);
+
+        try {
+            await supabase
+                .from('trip_notes')
+                .update({ accommodations_json: payload, updated_at: new Date().toISOString() })
+                .eq('trip_id', TRIP_ID);
+        } catch (e) {
+            console.error("Failed to save accommodations", e);
+        }
+    };
+
+    const handleSaveBaguio = () => {
+        if (!baguioTempLink.trim()) return;
+        saveAccommodations({ link: baguioTempLink, name: getSmartName(baguioTempLink) }, luAcc);
+        setIsEditingBaguio(false);
+        setBaguioTempLink('');
+    };
+
+    const handleRemoveBaguio = () => saveAccommodations(null, luAcc);
+
+    const handleSaveLu = () => {
+        if (!luTempLink.trim()) return;
+        saveAccommodations(baguioAcc, { link: luTempLink, name: getSmartName(luTempLink) });
+        setIsEditingLu(false);
+        setLuTempLink('');
+    };
+
+    const handleRemoveLu = () => saveAccommodations(baguioAcc, null);
+
     useEffect(() => {
         const calculateTotal = async () => {
             try {
                 const { data, error } = await supabase
                     .from('trip_notes')
-                    .select('itinerary_json')
+                    .select('itinerary_json, accommodations_json')
                     .eq('trip_id', TRIP_ID)
                     .single();
 
-                if (data && data.itinerary_json) {
-                    const itineraryTotal = data.itinerary_json.reduce((sum: number, item: any) => sum + (Number(item.cost) || 0), 0);
-                    setTotalBudget(itineraryTotal);
+                if (data) {
+                    if (data.itinerary_json) {
+                        const itineraryTotal = data.itinerary_json.reduce((sum: number, item: any) => sum + (Number(item.cost) || 0), 0);
+                        setTotalBudget(itineraryTotal);
+                    }
+                    if (data.accommodations_json) {
+                        setBaguioAcc(data.accommodations_json.baguio || null);
+                        setLuAcc(data.accommodations_json.laUnion || null);
+                    }
                 }
             } catch (e) {
                 console.error("Error fetching itinerary for budget", e);
@@ -113,16 +171,84 @@ export default function OverviewView() {
                                 <Home size={20} />
                             </div>
                             <div className="w-full">
-                                <p className="text-sm font-medium text-slate-500">Accommodation</p>
-                                <p className="text-slate-800 font-semibold mt-0.5">
-                                    <a href="https://www.airbnb.com/rooms/1358670721935477961" target="_blank" rel="noopener noreferrer" className="hover:text-emerald-600 underline decoration-emerald-200 underline-offset-4 transition-colors">
-                                        Secured Airbnb Booking
-                                    </a>
-                                </p>
-                                <div className="text-sm text-slate-600 mt-3 space-y-2 bg-slate-50 p-3.5 rounded-xl border border-slate-100">
+                                <p className="text-sm font-medium text-slate-500 mb-3">Accommodations</p>
+
+                                {/* Baguio Stay */}
+                                <div className="mb-4">
+                                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Baguio (Mar 19 - Mar 22)</p>
+                                    {baguioAcc ? (
+                                        <div className="flex items-center justify-between bg-slate-50 p-2.5 rounded-xl border border-slate-100 group">
+                                            <a href={baguioAcc.link} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-emerald-600 font-semibold hover:text-emerald-700 transition-colors w-full overflow-hidden">
+                                                <LinkIcon size={14} className="shrink-0" />
+                                                <span className="truncate text-sm">{baguioAcc.name}</span>
+                                            </a>
+                                            <button onClick={handleRemoveBaguio} className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-md transition-all lg:opacity-0 lg:group-hover:opacity-100">
+                                                <Trash2 size={14} />
+                                            </button>
+                                        </div>
+                                    ) : isEditingBaguio ? (
+                                        <div className="flex items-center gap-2 bg-slate-50 p-1.5 rounded-xl border border-slate-200 focus-within:border-emerald-300 focus-within:ring-2 focus-within:ring-emerald-50 transition-all">
+                                            <input
+                                                type="url"
+                                                value={baguioTempLink}
+                                                onChange={e => setBaguioTempLink(e.target.value)}
+                                                placeholder="Paste Airbnb/Agoda link..."
+                                                autoFocus
+                                                className="w-full bg-transparent text-sm outline-none px-2 text-slate-700"
+                                                onKeyDown={e => e.key === 'Enter' && handleSaveBaguio()}
+                                            />
+                                            <div className="flex items-center gap-1 shrink-0">
+                                                <button onClick={handleSaveBaguio} className="p-1.5 bg-emerald-100 text-emerald-600 rounded-lg hover:bg-emerald-200 transition-colors"><Check size={14} /></button>
+                                                <button onClick={() => setIsEditingBaguio(false)} className="p-1.5 bg-slate-200 text-slate-600 rounded-lg hover:bg-slate-300 transition-colors"><X size={14} /></button>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <button onClick={() => setIsEditingBaguio(true)} className="flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-emerald-600 bg-slate-50 hover:bg-emerald-50 px-3 py-2 rounded-xl border border-slate-100 hover:border-emerald-100 transition-all w-full border-dashed group">
+                                            <Plus size={14} className="group-hover:scale-110 transition-transform" /> Add Baguio Stay
+                                        </button>
+                                    )}
+                                </div>
+
+                                {/* La Union Stay */}
+                                <div>
+                                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">La Union (Mar 22 - Mar 25)</p>
+                                    {luAcc ? (
+                                        <div className="flex items-center justify-between bg-slate-50 p-2.5 rounded-xl border border-slate-100 group">
+                                            <a href={luAcc.link} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-emerald-600 font-semibold hover:text-emerald-700 transition-colors w-full overflow-hidden">
+                                                <LinkIcon size={14} className="shrink-0" />
+                                                <span className="truncate text-sm">{luAcc.name}</span>
+                                            </a>
+                                            <button onClick={handleRemoveLu} className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-md transition-all lg:opacity-0 lg:group-hover:opacity-100">
+                                                <Trash2 size={14} />
+                                            </button>
+                                        </div>
+                                    ) : isEditingLu ? (
+                                        <div className="flex items-center gap-2 bg-slate-50 p-1.5 rounded-xl border border-slate-200 focus-within:border-emerald-300 focus-within:ring-2 focus-within:ring-emerald-50 transition-all">
+                                            <input
+                                                type="url"
+                                                value={luTempLink}
+                                                onChange={e => setLuTempLink(e.target.value)}
+                                                placeholder="Paste Airbnb/Agoda link..."
+                                                autoFocus
+                                                className="w-full bg-transparent text-sm outline-none px-2 text-slate-700"
+                                                onKeyDown={e => e.key === 'Enter' && handleSaveLu()}
+                                            />
+                                            <div className="flex items-center gap-1 shrink-0">
+                                                <button onClick={handleSaveLu} className="p-1.5 bg-emerald-100 text-emerald-600 rounded-lg hover:bg-emerald-200 transition-colors"><Check size={14} /></button>
+                                                <button onClick={() => setIsEditingLu(false)} className="p-1.5 bg-slate-200 text-slate-600 rounded-lg hover:bg-slate-300 transition-colors"><X size={14} /></button>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <button onClick={() => setIsEditingLu(true)} className="flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-emerald-600 bg-slate-50 hover:bg-emerald-50 px-3 py-2 rounded-xl border border-slate-100 hover:border-emerald-100 transition-all w-full border-dashed group">
+                                            <Plus size={14} className="group-hover:scale-110 transition-transform" /> Add La Union Stay
+                                        </button>
+                                    )}
+                                </div>
+
+                                <div className="text-sm text-slate-600 mt-5 space-y-2 bg-slate-50 p-3.5 rounded-xl border border-slate-100">
                                     <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1">
-                                        <span className="text-slate-500">Check-in</span>
-                                        <span className="font-semibold text-slate-700">Thu, Mar 19 • 2:00 PM</span>
+                                        <span className="text-slate-500">Trip Starts</span>
+                                        <span className="font-semibold text-slate-700">Thu, Mar 19 • Early Morning</span>
                                     </div>
                                     <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1">
                                         <span className="text-slate-500">Check-out (La Union)</span>
