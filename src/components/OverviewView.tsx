@@ -70,6 +70,26 @@ export default function OverviewView({ itineraryData = [] }: { itineraryData?: a
 
     const handleRemoveLu = () => saveAccommodations(baguioAcc, null);
 
+    const [weather, setWeather] = useState({ temp: 16, max: 24, min: 14, wind: 12, rain: 20 });
+
+    useEffect(() => {
+        // Fetch real-time weather for Baguio City (No API Key Required)
+        fetch('https://api.open-meteo.com/v1/forecast?latitude=16.416&longitude=120.593&current=temperature_2m,wind_speed_10m&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=Asia%2FManila')
+            .then(res => res.json())
+            .then(data => {
+                if (data && data.current && data.daily) {
+                    setWeather({
+                        temp: Math.round(data.current.temperature_2m),
+                        max: Math.round(data.daily.temperature_2m_max[0]),
+                        min: Math.round(data.daily.temperature_2m_min[0]),
+                        wind: Math.round(data.current.wind_speed_10m),
+                        rain: data.daily.precipitation_probability_max[0]
+                    });
+                }
+            })
+            .catch(err => console.error("Weather fetch error", err));
+    }, []);
+
     useEffect(() => {
         const calculateTotal = async () => {
             try {
@@ -127,16 +147,16 @@ export default function OverviewView({ itineraryData = [] }: { itineraryData?: a
                     <div className="flex justify-between items-start mb-6">
                         <div>
                             <h2 className="text-xl font-semibold opacity-90 flex items-center gap-2">
-                                <MapPin size={18} /> Baguio & La Union
+                                <MapPin size={18} /> Baguio City
                             </h2>
-                            <p className="text-blue-100 text-sm mt-1">Thursday, Mar 19 - Mar 25</p>
+                            <p className="text-blue-100 text-sm mt-1">Real-time Current Weather</p>
                         </div>
                         <CloudSun size={48} className="text-yellow-300 drop-shadow-md" />
                     </div>
 
                     <div className="flex items-end gap-4 mb-8">
-                        <span className="text-6xl font-bold tracking-tighter">16°</span>
-                        <span className="text-2xl font-medium text-blue-100 pb-2">/ 24°</span>
+                        <span className="text-6xl font-bold tracking-tighter">{weather.temp}°</span>
+                        <span className="text-2xl font-medium text-blue-100 pb-2">/ {weather.max}°</span>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
@@ -144,13 +164,13 @@ export default function OverviewView({ itineraryData = [] }: { itineraryData?: a
                             <div className="flex items-center gap-2 text-blue-100 text-sm mb-1">
                                 <Wind size={14} /> Wind
                             </div>
-                            <span className="font-semibold text-lg">12 km/h</span>
+                            <span className="font-semibold text-lg">{weather.wind} km/h</span>
                         </div>
                         <div className="bg-white/10 rounded-2xl p-4 backdrop-blur-sm border border-white/10">
                             <div className="flex items-center gap-2 text-blue-100 text-sm mb-1">
                                 <Umbrella size={14} /> Rain Risk
                             </div>
-                            <span className="font-semibold text-lg">20%</span>
+                            <span className="font-semibold text-lg">{weather.rain}%</span>
                         </div>
                     </div>
                 </motion.div>
@@ -293,7 +313,7 @@ export default function OverviewView({ itineraryData = [] }: { itineraryData?: a
                     <Info size={18} /> Pro Tip from your AI
                 </h4>
                 <p className="text-orange-800 text-sm leading-relaxed">
-                    Baguio gets quite chilly at night in March (can drop to 14°C). Remeber to pack a light jacket or sweater. Good Taste is also notoriously crowded; try visiting their original branch behind Baguio Center Mall for shorter lines.
+                    Baguio gets chilly at night in March (can drop to 14°C) — pack a light jacket. Good Taste is crowded; try the original branch behind Baguio Center Mall. In La Union, book surf lessons early morning (8–10 AM) for the best waves and fewer crowds. Budget tip: carinderias serve ₱120–200 meals in both areas!
                 </p>
             </motion.div>
         </div>

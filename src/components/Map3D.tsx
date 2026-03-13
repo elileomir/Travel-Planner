@@ -37,7 +37,9 @@ export default function Map3D({ activeItem, onCloseMap }: Map3DProps) {
         }
     }, [activeItem]);
 
-    // Fetch Geocoding and Route when activeItem changes
+    // Two-step animation:
+    // Step 1: Immediately fly to destination pin (before route loads)
+    // Step 2: Once route loads, smoothly zoom out to show full route with both pins
     useEffect(() => {
         if (!activeItem || !activeItem.location) {
             setDestCoords(null);
@@ -49,65 +51,38 @@ export default function Map3D({ activeItem, onCloseMap }: Map3DProps) {
         const fetchRoute = async () => {
             setIsLoading(true);
             setRouteETA("Calculating...");
+            setRouteGeoJSON(null); // Clear old route
             const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
             if (!token) return;
 
             try {
-                // 1. 100% Precision Geo-Coordinates Fallback (Verified by AI Research)
-                const KNOWN_LOCATIONS: Record<string, [number, number]> = {
-                    "cubao": [121.0480556, 14.6238889], // Victory Liner Cubao
-                    "camp john hay": [120.6125, 16.402778],
-                    "good taste": [120.595, 16.410],
-                    "burnham park": [120.597222, 16.410278],
-                    "ili-likha": [120.596, 16.412],
-                    "session road": [120.595833, 16.410278],
-                    "mines view": [120.6125, 16.402778],
-                    "mansion": [120.605, 16.406],
-                    "wright park": [120.603333, 16.406111],
-                    "night market": [120.5975, 16.4075],
-                    "bencab museum": [120.5625, 16.370278],
-                    "cafe in the sky": [120.58, 16.45],
-                    "strawberry farm": [120.568, 16.455],
-                    "stobosa": [120.57, 16.46],
-                    "bell church": [120.58, 16.42],
-                    "public market": [120.5975, 16.4125],
-                    "cathedral": [120.598, 16.412],
-                    "tam-awan": [120.575, 16.425],
-                    "stone kingdom": [120.577, 16.430],
-                    "botanical": [120.605, 16.415],
-                    "gov pack": [120.5975, 16.405],
-                    "50s diner": [120.599, 16.414],
-                    "hill station": [120.598, 16.411],
-                    "mirador": [120.585, 16.408]
-                };
-
                 let destLngLat: [number, number] | null = null;
-                const searchLower = activeItem.location.toLowerCase();
-                const activityLower = activeItem.activity?.toLowerCase() || '';
 
-                // 0. Highest Priority: Direct Exact Coordinates from Autocomplete Mapbox Picker
-                if (activeItem.coordinates && activeItem.coordinates.length === 2) {
+                // Priority 1: Verified CSV coordinates
+                if (activeItem.lat && activeItem.lng) {
+                    destLngLat = [activeItem.lng, activeItem.lat];
+                }
+
+                // Priority 2: Mapbox autocomplete coordinates (custom items)
+                if (!destLngLat && activeItem.coordinates && activeItem.coordinates.length === 2) {
                     destLngLat = activeItem.coordinates as [number, number];
                 }
 
-                // 1. Next Priority: 100% accurate known coordinates inside KNOWN_LOCATIONS
+                // Priority 3: Mapbox geocoding (last resort)
                 if (!destLngLat) {
-                    const matchedKey = Object.keys(KNOWN_LOCATIONS).find(k => searchLower.includes(k) || activityLower.includes(k));
-                    if (matchedKey) {
-                        destLngLat = KNOWN_LOCATIONS[matchedKey];
-                    }
-                }
+                    const dest = (activeItem as any).destination || '';
+                    const regionHint = dest.includes('La Union') || dest.includes('Elyu')
+                        ? 'La Union Philippines'
+                        : 'Baguio City Philippines';
 
-                // 2. Lowest Priority: Fallback to fuzzy Mapbox Geocoding text search
-                if (!destLngLat) {
                     const searchQueries = [
-                        `${activeItem.location} Philippines`,
-                        `${activeItem.location} Baguio City`,
-                        `${activeItem.location} ${activeItem.activity} Philippines`
+                        `${activeItem.location} ${regionHint}`,
+                        `${activeItem.activity} ${regionHint}`,
+                        `${activeItem.location} Philippines`
                     ];
 
                     for (const query of searchQueries) {
-                        const geoUrl = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?access_token=${token}&limit=1`;
+                        const geoUrl = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?access_token=${token}&limit=1&country=PH`;
                         const geoRes = await fetch(geoUrl);
                         const geoData = await geoRes.json();
                         if (geoData.features && geoData.features.length > 0) {
@@ -125,19 +100,45 @@ export default function Map3D({ activeItem, onCloseMap }: Map3DProps) {
 
                 setDestCoords(destLngLat);
 
-                // 2. Fetch Directions (Waze-like route) from userCoords to destLngLat
-                const routeUrl = `https://api.mapbox.com/directions/v5/mapbox/driving-traffic/${userCoords[0]},${userCoords[1]};${destLngLat[0]},${destLngLat[1]}?geometries=geojson&access_token=${token}`;
-                const routeRes = await fetch(routeUrl);
-                const routeData = await routeRes.json();
+                // ── STEP 1: Immediately fly to the destination pin ──
+                if (mapRef.current) {
+                    const map = mapRef.current.getMap();
+                    map.flyTo({
+                        center: destLngLat,
+                        zoom: 15,
+                        pitch: 60,
+                        bearing: -20,
+                        duration: 1200,
+                        essential: true
+                    });
+                }
+
+                // Fetch Directions with full accuracy params (Try Traffic first)
+                let routeUrl = `https://api.mapbox.com/directions/v5/mapbox/driving-traffic/${userCoords[0]},${userCoords[1]};${destLngLat[0]},${destLngLat[1]}?geometries=geojson&overview=full&steps=true&annotations=distance,duration,congestion&access_token=${token}`;
+                let routeRes = await fetch(routeUrl);
+                let routeData = await routeRes.json();
+
+                // Fallback to standard driving if driving-traffic fails (e.g., for very long routes like Manila to Baguio)
+                if (!routeData.routes || routeData.routes.length === 0) {
+                    console.log("driving-traffic failed or returned no routes, falling back to standard driving profile...");
+                    routeUrl = `https://api.mapbox.com/directions/v5/mapbox/driving/${userCoords[0]},${userCoords[1]};${destLngLat[0]},${destLngLat[1]}?geometries=geojson&overview=full&steps=true&annotations=distance,duration&access_token=${token}`;
+                    routeRes = await fetch(routeUrl);
+                    routeData = await routeRes.json();
+                }
 
                 if (routeData.routes && routeData.routes.length > 0) {
                     const routeInfo = routeData.routes[0];
                     const route = routeInfo.geometry;
 
-                    // Convert duration (seconds) to ETA
+                    // ETA formatting
                     const durationMins = Math.ceil(routeInfo.duration / 60);
                     if (durationMins < 1) setRouteETA("< 1 min drive");
-                    else setRouteETA(`${durationMins} min drive`);
+                    else if (durationMins < 60) setRouteETA(`${durationMins} min drive`);
+                    else {
+                        const hrs = Math.floor(durationMins / 60);
+                        const mins = durationMins % 60;
+                        setRouteETA(`${hrs}h ${mins}m drive`);
+                    }
 
                     setRouteGeoJSON({
                         type: 'Feature',
@@ -145,24 +146,42 @@ export default function Map3D({ activeItem, onCloseMap }: Map3DProps) {
                         geometry: route
                     });
 
-                    // Fly to route bounds securely
-                    if (mapRef.current) {
-                        const map = mapRef.current.getMap();
+                    // ── STEP 2: After a brief pause, smoothly zoom out to show the full route ──
+                    setTimeout(() => {
+                        if (mapRef.current) {
+                            const map = mapRef.current.getMap();
+                            const coords = route.coordinates as [number, number][];
+                            if (coords && coords.length > 0) {
+                                let minLng = Infinity, maxLng = -Infinity, minLat = Infinity, maxLat = -Infinity;
+                                for (const [lng, lat] of coords) {
+                                    if (lng < minLng) minLng = lng;
+                                    if (lng > maxLng) maxLng = lng;
+                                    if (lat < minLat) minLat = lat;
+                                    if (lat > maxLat) maxLat = lat;
+                                }
+                                // Also include user coords in bounds
+                                if (userCoords[0] < minLng) minLng = userCoords[0];
+                                if (userCoords[0] > maxLng) maxLng = userCoords[0];
+                                if (userCoords[1] < minLat) minLat = userCoords[1];
+                                if (userCoords[1] > maxLat) maxLat = userCoords[1];
 
-                        // calculate bounding box between user and destination
-                        const minLng = Math.min(userCoords[0], destLngLat[0]);
-                        const maxLng = Math.max(userCoords[0], destLngLat[0]);
-                        const minLat = Math.min(userCoords[1], destLngLat[1]);
-                        const maxLat = Math.max(userCoords[1], destLngLat[1]);
+                                const bounds: [[number, number], [number, number]] = [
+                                    [minLng, minLat],
+                                    [maxLng, maxLat]
+                                ];
 
-                        const bounds: [[number, number], [number, number]] = [
-                            [minLng, minLat],
-                            [maxLng, maxLat]
-                        ];
-
-                        // Add padding bottom for the animated card
-                        map.fitBounds(bounds, { padding: { top: 80, bottom: 250, left: 80, right: 80 }, duration: 2000, pitch: 45 });
-                    }
+                                // Safely fit bounds with smaller padding to avoid Mapbox Canvas errors on mobile/small screens
+                                // and maxZoom to prevent infinite zooming if origin/dest are the exact same point
+                                map.fitBounds(bounds, {
+                                    padding: { top: 80, bottom: 120, left: 40, right: 40 },
+                                    duration: 2000,
+                                    pitch: 45,
+                                    bearing: 0,
+                                    maxZoom: 16
+                                });
+                            }
+                        }
+                    }, 1200); // Wait for step 1 fly animation to finish
                 } else {
                     setRouteETA("No route found");
                 }
@@ -302,8 +321,8 @@ export default function Map3D({ activeItem, onCloseMap }: Map3DProps) {
                     </Source>
                 )}
 
-                {/* User Current Location Marker (Mocked to Baguio if real GPS fails) */}
-                {userCoords && routeGeoJSON && (
+                {/* User Current Location Marker (always visible when viewing route) */}
+                {userCoords && activeItem && (
                     <Marker longitude={userCoords[0]} latitude={userCoords[1]}>
                         <div className="w-5 h-5 bg-blue-600 rounded-full border-2 border-white shadow-lg ring-4 ring-blue-500/30 flex items-center justify-center">
                             <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />

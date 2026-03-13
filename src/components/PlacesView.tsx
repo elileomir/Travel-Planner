@@ -15,10 +15,14 @@ export interface PlaceItem {
     location: string;
     durationOrTime: string;
     price: string;
+    destination: string;
+    latitude?: number;
+    longitude?: number;
     isCustom?: boolean;
 }
 
 export default function PlacesView({ foodData, spotsData }: { foodData: any[], spotsData: any[] }) {
+    const [destinationFilter, setDestinationFilter] = useState<'Baguio' | 'La Union (Elyu)'>('Baguio');
     const [filter, setFilter] = useState<'all' | 'food' | 'spots'>('all');
     const [places, setPlaces] = useState<PlaceItem[]>([]);
 
@@ -38,34 +42,71 @@ export default function PlacesView({ foodData, spotsData }: { foodData: any[], s
         location: '',
         durationOrTime: '',
         price: '',
+        destination: 'Baguio',
         isCustom: true
     });
 
+    // Version key: bump this whenever CSVs are updated to force a data refresh
+    const DATA_VERSION = 'v19-final';
+
     useEffect(() => {
+        const storedVersion = localStorage.getItem('places_data_version');
         const saved = localStorage.getItem('custom_places_items');
-        if (saved) {
+
+        // Parse fresh data from CSVs
+        const initialSpots: PlaceItem[] = spotsData.filter(s => s.Attraction || s.Spot).map(s => ({
+            id: crypto.randomUUID(), type: 'spot',
+            title: s.Attraction || s.Spot, category: s.Category || 'Landmark',
+            description: s.Highlights || s.Description || '', location: s.Address || s.Location || '',
+            durationOrTime: `${s['Best Time'] || 'Anytime'} (${s['Suggested Duration'] || s.Duration || ''})`,
+            price: s['Entrance Fee'] || s['Entrance Fee (₱)'] || 'Free',
+            destination: s.Destination || 'Baguio',
+            latitude: s.Latitude ? Number(s.Latitude) : undefined,
+            longitude: s.Longitude ? Number(s.Longitude) : undefined,
+            isCustom: false
+        }));
+        const initialFood: PlaceItem[] = foodData.filter(f => f['Restaurant / Food Spot'] || f.Restaurant).map(f => ({
+            id: crypto.randomUUID(), type: 'food',
+            title: f['Restaurant / Food Spot'] || f.Restaurant,
+            category: f['Cuisine / Type'] || f.Cuisine || 'Local',
+            description: f['Specialty / Must Try'] || (f['Must Try'] ? `Must Try: ${f['Must Try']}` : ''),
+            location: f['Location / Link'] || f.Location || '',
+            durationOrTime: f['Best For'] || 'Anytime',
+            price: f['Price Range per Person (₱)'] || f['Price Range'] || 'Varies',
+            destination: f.Destination || 'Baguio',
+            latitude: f.Latitude ? Number(f.Latitude) : undefined,
+            longitude: f.Longitude ? Number(f.Longitude) : undefined,
+            isCustom: false
+        }));
+
+        const csvItems = [...initialSpots, ...initialFood];
+
+        if (storedVersion === DATA_VERSION && saved) {
+            // Version matches: keep custom items, refresh CSV items
             try {
-                setPlaces(JSON.parse(saved));
-            } catch (e) { console.error(e); }
+                const existing: PlaceItem[] = JSON.parse(saved);
+                const customOnly = existing.filter(p => p.isCustom);
+                const combined = [...csvItems, ...customOnly];
+                setPlaces(combined);
+                localStorage.setItem('custom_places_items', JSON.stringify(combined));
+            } catch {
+                setPlaces(csvItems);
+                localStorage.setItem('custom_places_items', JSON.stringify(csvItems));
+            }
         } else {
-            const initialSpots: PlaceItem[] = spotsData.filter(s => s.Attraction || s.Spot).map(s => ({
-                id: crypto.randomUUID(), type: 'spot',
-                title: s.Attraction || s.Spot, category: s.Category || 'Landmark',
-                description: s.Highlights || s.Description || '', location: s.Address || s.Location || '',
-                durationOrTime: `${s['Best Time'] || 'Anytime'} (${s.Duration || ''})`,
-                price: s['Entrance Fee'] || 'Free',
-                isCustom: false
-            }));
-            const initialFood: PlaceItem[] = foodData.filter(f => f.Restaurant).map(f => ({
-                id: crypto.randomUUID(), type: 'food',
-                title: f.Restaurant, category: f.Cuisine || 'Local',
-                description: f['Must Try'] ? `Must Try: ${f['Must Try']}` : '', location: f.Location || '',
-                durationOrTime: 'Anytime', price: f['Price Range'] || 'Varies',
-                isCustom: false
-            }));
-            const combined = [...initialSpots, ...initialFood];
+            // Version mismatch or first load: wipe old data, load fresh CSVs
+            // Preserve any custom items if they exist
+            let customOnly: PlaceItem[] = [];
+            if (saved) {
+                try {
+                    const existing: PlaceItem[] = JSON.parse(saved);
+                    customOnly = existing.filter(p => p.isCustom);
+                } catch { /* ignore */ }
+            }
+            const combined = [...csvItems, ...customOnly];
             setPlaces(combined);
             localStorage.setItem('custom_places_items', JSON.stringify(combined));
+            localStorage.setItem('places_data_version', DATA_VERSION);
         }
     }, [foodData, spotsData]);
 
@@ -97,7 +138,8 @@ export default function PlacesView({ foodData, spotsData }: { foodData: any[], s
         setEditingPlace(null);
         setFormData({
             id: '', type: filter === 'food' ? 'food' : 'spot', title: '', category: '',
-            description: '', location: '', durationOrTime: '', price: '', isCustom: true
+            description: '', location: '', durationOrTime: '', price: '',
+            destination: destinationFilter, isCustom: true
         });
         setIsAddEditModalOpen(true);
     };
@@ -125,24 +167,54 @@ export default function PlacesView({ foodData, spotsData }: { foodData: any[], s
         show: { opacity: 1, y: 0 }
     };
 
-    const filteredPlaces = places.filter(p => filter === 'all' || filter === p.type);
+    const filteredPlaces = places.filter(p => {
+        const dest = p.destination || 'Baguio'; // Fallback for legacy local storage items
+        const matchesDestination = destinationFilter === 'Baguio' ? dest.includes('Baguio') : dest.includes('La Union');
+        const matchesType = filter === 'all' || filter === p.type;
+        return matchesDestination && matchesType;
+    });
 
     return (
         <div className="p-4 md:p-8 max-w-7xl mx-auto w-full pb-24 relative">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+            <div className="flex justify-center mb-8">
+                <div className="flex bg-slate-200/60 p-1.5 rounded-2xl w-full max-w-md relative shadow-inner">
+                    <motion.div
+                        layoutId="destinationHighlight"
+                        className="absolute top-1.5 bottom-1.5 w-[calc(50%-6px)] bg-white rounded-xl shadow-sm border border-slate-100/50"
+                        animate={{ left: destinationFilter === 'Baguio' ? '6px' : 'calc(50%)' }}
+                        transition={{ type: "spring", bounce: 0.2, duration: 0.5 }}
+                    />
+                    <button
+                        onClick={() => setDestinationFilter('Baguio')}
+                        className={`flex-1 flex flex-col items-center justify-center py-2.5 rounded-xl text-sm font-bold z-10 transition-colors ${destinationFilter === 'Baguio' ? 'text-blue-700' : 'text-slate-500 hover:text-slate-600'}`}
+                    >
+                        Baguio City
+                        <span className={`text-[10px] font-medium transition-colors ${destinationFilter === 'Baguio' ? 'text-blue-500/70' : 'text-slate-400'}`}>Cool Mountains</span>
+                    </button>
+                    <button
+                        onClick={() => setDestinationFilter('La Union (Elyu)')}
+                        className={`flex-1 flex flex-col items-center justify-center py-2.5 rounded-xl text-sm font-bold z-10 transition-colors ${destinationFilter === 'La Union (Elyu)' ? 'text-orange-600' : 'text-slate-500 hover:text-slate-600'}`}
+                    >
+                        La Union
+                        <span className={`text-[10px] font-medium transition-colors ${destinationFilter === 'La Union (Elyu)' ? 'text-orange-500/70' : 'text-slate-400'}`}>Sunny Surf</span>
+                    </button>
+                </div>
+            </div>
+
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4 border-b border-slate-200/60 pb-6">
                 <div>
-                    <h2 className="text-2xl font-bold text-slate-800 tracking-tight">Discover Baguio</h2>
+                    <h2 className="text-2xl font-bold text-slate-800 tracking-tight">Discover {destinationFilter === 'Baguio' ? 'Baguio' : 'Elyu'}</h2>
                     <p className="text-slate-500 mt-1">Curated recommendations & your saved places</p>
                 </div>
 
                 <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
-                    <div className="flex bg-slate-100 p-1 rounded-xl">
-                        <button onClick={() => setFilter('all')} className={`flex-1 md:flex-none px-6 py-2 rounded-lg text-sm font-medium transition-all ${filter === 'all' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>All</button>
-                        <button onClick={() => setFilter('spots')} className={`flex-1 md:flex-none px-6 py-2 rounded-lg text-sm font-medium transition-all ${filter === 'spots' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>Attractions</button>
-                        <button onClick={() => setFilter('food')} className={`flex-1 md:flex-none px-6 py-2 rounded-lg text-sm font-medium transition-all ${filter === 'food' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>Food</button>
+                    <div className="flex bg-slate-100 p-1 rounded-xl shadow-inner">
+                        <button onClick={() => setFilter('all')} className={`flex-1 md:flex-none px-5 py-2 rounded-lg text-sm font-semibold transition-all ${filter === 'all' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>All</button>
+                        <button onClick={() => setFilter('spots')} className={`flex-1 md:flex-none px-5 py-2 rounded-lg text-sm font-semibold transition-all ${filter === 'spots' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>Attractions</button>
+                        <button onClick={() => setFilter('food')} className={`flex-1 md:flex-none px-5 py-2 rounded-lg text-sm font-semibold transition-all ${filter === 'food' ? 'bg-white text-orange-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>Food</button>
                     </div>
-                    <button onClick={openAddModal} className="flex items-center justify-center gap-2 px-6 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors shadow-sm whitespace-nowrap cursor-pointer">
-                        <Plus size={16} /> Add Place
+                    <button onClick={openAddModal} className="flex items-center justify-center gap-2 px-5 py-2 text-sm font-bold text-white bg-slate-800 hover:bg-slate-900 rounded-xl transition-colors shadow-sm whitespace-nowrap cursor-pointer">
+                        <Plus size={16} /> Add
                     </button>
                 </div>
             </div>
@@ -177,6 +249,17 @@ export default function PlacesView({ foodData, spotsData }: { foodData: any[], s
                             <div className="flex items-center text-xs text-slate-500">
                                 <MapPin size={14} className="mr-2 text-slate-400 shrink-0" />
                                 <span className="truncate">{place.location}</span>
+                                {place.latitude && place.longitude && (
+                                    <a
+                                        href={`https://maps.google.com/?q=${place.latitude},${place.longitude}`}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        title="Open in Maps"
+                                        className="ml-auto flex items-center gap-1 shrink-0 text-blue-500 hover:text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded transition-colors"
+                                    >
+                                        Map &rarr;
+                                    </a>
+                                )}
                             </div>
                             {place.durationOrTime && (
                                 <div className="flex items-center text-xs text-slate-500">

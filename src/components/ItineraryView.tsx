@@ -17,6 +17,9 @@ export default function ItineraryView({ itineraryData }: { itineraryData: any[] 
         if (dayStr.includes('Mar 20')) baseDate = new Date('2026-03-20');
         if (dayStr.includes('Mar 21')) baseDate = new Date('2026-03-21');
         if (dayStr.includes('Mar 22')) baseDate = new Date('2026-03-22');
+        if (dayStr.includes('Mar 23')) baseDate = new Date('2026-03-23');
+        if (dayStr.includes('Mar 24')) baseDate = new Date('2026-03-24');
+        if (dayStr.includes('Mar 25')) baseDate = new Date('2026-03-25');
 
         // approximate actual Time object by parsing "01:00 AM"
         try {
@@ -28,6 +31,13 @@ export default function ItineraryView({ itineraryData }: { itineraryData: any[] 
                 baseDate.setHours(hours, minutes, 0, 0);
             }
         } catch { } // ignore bad parse
+
+        // Detect destination: use CSV's Destination column, detect "Home" for drive-home items
+        let destination = item.Destination || 'Baguio';
+        const actLower = (item.Activity || '').toLowerCase();
+        if (actLower.includes('drive back home') || actLower.includes('depart home') || actLower.includes('drive home')) {
+            destination = 'Home';
+        }
 
         return {
             id: String(index),
@@ -41,7 +51,10 @@ export default function ItineraryView({ itineraryData }: { itineraryData: any[] 
             cost: parseFloat(item['Cost per Person (₱)']) || 0,
             notes: item.Notes,
             link: item.Link,
-            actualDate: baseDate
+            actualDate: baseDate,
+            lat: item.Latitude ? Number(item.Latitude) : undefined,
+            lng: item.Longitude ? Number(item.Longitude) : undefined,
+            destination
         };
     });
 
@@ -51,9 +64,8 @@ export default function ItineraryView({ itineraryData }: { itineraryData: any[] 
             <div className={`w-full md:w-[600px] flex flex-col bg-white border-r border-slate-200 flex-1 relative z-20 ${activeItem ? 'hidden md:flex' : 'flex'}`}>
                 <ItineraryTimeline
                     initialItems={formattedItems}
-                    onShowMap={(location) => {
-                        const item = formattedItems.find(i => i.location === location);
-                        if (item) setActiveItem(item);
+                    onShowMap={(item) => {
+                        setActiveItem(item);
                     }}
                 />
             </div>

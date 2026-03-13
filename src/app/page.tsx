@@ -5,9 +5,9 @@ import AppShell from '@/components/AppShell';
 
 export default function Home() {
   // Read CSVs directly from disk since this runs on Node server
-  const itineraryPath = path.join(process.cwd(), 'baguio_lu_itinerary_mar19_25_2026.csv');
-  const foodPath = path.join(process.cwd(), 'baguio_lu_food_guide.csv');
-  const spotsPath = path.join(process.cwd(), 'baguio_lu_tourist_spots_guide.csv');
+  const itineraryPath = path.join(process.cwd(), 'baguio_lu_itinerary_mar19_25_2026_with_coords.csv');
+  const foodPath = path.join(process.cwd(), 'baguio_lu_food_guide_with_coords.csv');
+  const spotsPath = path.join(process.cwd(), 'baguio_lu_tourist_spots_guide_with_coords.csv');
 
   let itineraryData: any[] = [];
   let foodData: any[] = [];

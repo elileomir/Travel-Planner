@@ -24,7 +24,16 @@ export interface ItineraryItem {
     actualDate: Date;
     lat?: number;
     lng?: number;
+    destination?: string;
 }
+
+// Destination theming helper
+const getDestinationTheme = (dest?: string) => {
+    if (!dest) return { label: 'Baguio', emoji: '🏔️', bg: 'bg-blue-100', text: 'text-blue-700', border: 'border-blue-300', headerBorder: 'border-l-blue-500' };
+    if (dest === 'Home') return { label: 'Home', emoji: '🏠', bg: 'bg-emerald-100', text: 'text-emerald-700', border: 'border-emerald-300', headerBorder: 'border-l-emerald-500' };
+    if (dest.includes('La Union') || dest.includes('Elyu')) return { label: 'Elyu', emoji: '🏖️', bg: 'bg-amber-100', text: 'text-amber-700', border: 'border-amber-300', headerBorder: 'border-l-amber-500' };
+    return { label: 'Baguio', emoji: '🏔️', bg: 'bg-blue-100', text: 'text-blue-700', border: 'border-blue-300', headerBorder: 'border-l-blue-500' };
+};
 
 const parseTimeToMinutes = (timeStr: string) => {
     if (!timeStr) return 0;
@@ -52,7 +61,7 @@ export default function ItineraryTimeline({
     onShowMap
 }: {
     initialItems: ItineraryItem[],
-    onShowMap: (location: string) => void
+    onShowMap: (item: ItineraryItem) => void
 }) {
     // Core State
     const [items, setItems] = useState<ItineraryItem[]>(initialItems);
@@ -247,10 +256,10 @@ export default function ItineraryTimeline({
 
         if (warnings.length > 0) return { type: 'warning', text: warnings[0] };
 
-        if (Object.keys(listGroups).length >= 3 && maxDurationMins > 0) {
-            return { type: 'success', text: "✨ Great pacing! You are maximizing your 4-Day Baguio trip perfectly." };
-        } else if (Object.keys(listGroups).length > 0 && Object.keys(listGroups).length < 3) {
-            return { type: 'info', text: "💡 You have plenty of free time! Try adding more iconic Baguio spots." };
+        if (Object.keys(listGroups).length >= 5 && maxDurationMins > 0) {
+            return { type: 'success', text: "✨ Great pacing! You are maximizing your 7-Day Baguio & Elyu trip perfectly." };
+        } else if (Object.keys(listGroups).length > 0 && Object.keys(listGroups).length < 5) {
+            return { type: 'info', text: "💡 You have room to explore more spots in Baguio or La Union!" };
         }
 
         return null;
@@ -400,7 +409,7 @@ export default function ItineraryTimeline({
                 <div className={`bg-white border rounded-2xl p-5 hover:shadow-md transition-all ${isVisited ? 'border-emerald-200 bg-emerald-50/20' : 'border-slate-200 hover:border-blue-200'}`}>
                     <div className="flex justify-between items-start mb-3">
                         <div className="flex flex-col gap-1 w-[60%]">
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 flex-wrap">
                                 <h4 className={`font-bold text-lg leading-tight ${isVisited ? 'text-emerald-800 line-through opacity-70' : 'text-slate-800'}`}>
                                     {item.activity}
                                 </h4>
@@ -414,6 +423,15 @@ export default function ItineraryTimeline({
                                     </button>
                                 </div>
                             </div>
+                            {/* Destination Badge */}
+                            {(() => {
+                                const theme = getDestinationTheme(item.destination);
+                                return (
+                                    <span className={`inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full w-fit ${theme.bg} ${theme.text} ${theme.border} border`}>
+                                        {theme.emoji} {theme.label}
+                                    </span>
+                                );
+                            })()}
                             <div className="flex items-center text-sm text-slate-600">
                                 <MapPin className="w-3.5 h-3.5 mr-1.5 text-rose-500 shrink-0" />
                                 <span className="truncate">{item.location}</span>
@@ -448,7 +466,7 @@ export default function ItineraryTimeline({
                             </button>
 
                             <button
-                                onClick={() => onShowMap(item.location)}
+                                onClick={() => onShowMap(item)}
                                 className="flex items-center px-3 py-1.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors"
                             >
                                 <MapIcon className="w-3.5 h-3.5 mr-1.5" />
@@ -599,16 +617,24 @@ export default function ItineraryTimeline({
                 {items.length === 0 && <div className="text-center text-slate-400 mt-10 text-sm">No items yet. Add one!</div>}
 
                 {viewMode === 'list' ? (
-                    Object.entries(listGroups).map(([day, dayItems]) => (
-                        <div key={day} className="mb-10 last:mb-0 relative">
-                            <h3 className="sticky top-[-1px] z-20 bg-white/95 backdrop-blur-md text-sm font-bold text-slate-500 uppercase tracking-wider mb-6 py-2 border-b border-slate-100 pl-8 rounded-b-md shadow-sm">
-                                {day}
-                            </h3>
-                            <div className="flex flex-col gap-6">
-                                {dayItems.map(renderItemCard)}
+                    Object.entries(listGroups).map(([day, dayItems]) => {
+                        // Determine dominant destination for this day's header
+                        const dominantDest = dayItems[0]?.destination || 'Baguio';
+                        const headerTheme = getDestinationTheme(dominantDest);
+                        return (
+                            <div key={day} className="mb-10 last:mb-0 relative">
+                                <h3 className={`sticky top-[-1px] z-20 bg-white/95 backdrop-blur-md text-sm font-bold text-slate-500 uppercase tracking-wider mb-6 py-2 border-b border-slate-100 pl-8 rounded-b-md shadow-sm border-l-4 ${headerTheme.headerBorder}`}>
+                                    {day}
+                                    <span className={`ml-2 text-[10px] ${headerTheme.text} normal-case tracking-normal font-semibold`}>
+                                        {headerTheme.emoji} {headerTheme.label}
+                                    </span>
+                                </h3>
+                                <div className="flex flex-col gap-6">
+                                    {dayItems.map(renderItemCard)}
+                                </div>
                             </div>
-                        </div>
-                    ))
+                        );
+                    })
                 ) : (
                     <motion.div
                         key={selectedDay}
