@@ -33,7 +33,7 @@ export default function AppShell({
     const renderContent = () => {
         switch (activeTab) {
             case 'overview':
-                return <OverviewView />;
+                return <OverviewView itineraryData={itineraryData} />;
             case 'itinerary':
                 return <ItineraryView itineraryData={itineraryData} />;
             case 'places':

@@ -7,8 +7,16 @@ import { supabase } from '../lib/supabase';
 
 const TRIP_ID = 'b3d81829-5735-46fd-bcc5-7dfb2e27be8e';
 
-export default function OverviewView() {
-    const [totalBudget, setTotalBudget] = useState(12500);
+export default function OverviewView({ itineraryData = [] }: { itineraryData?: any[] }) {
+    // Calculate accurate baseline from CSV exactly
+    const baseTotal = itineraryData.reduce((sum, item) => {
+        const costRaw = item['Cost for 2 (₱)'];
+        // Remove commas or currency symbols if any, though it's likely just a number string
+        const costNum = costRaw ? Number(costRaw.replace(/[^0-9.-]+/g, "")) : 0;
+        return sum + costNum;
+    }, 0) || 12500;
+
+    const [totalBudget, setTotalBudget] = useState(baseTotal);
 
     // Multi-location accommodations state
     const [baguioAcc, setBaguioAcc] = useState<{ link: string, name: string } | null>(null);
@@ -72,9 +80,11 @@ export default function OverviewView() {
                     .single();
 
                 if (data) {
-                    if (data.itinerary_json) {
+                    if (data.itinerary_json && data.itinerary_json.length > 0) {
                         const itineraryTotal = data.itinerary_json.reduce((sum: number, item: any) => sum + (Number(item.cost) || 0), 0);
                         setTotalBudget(itineraryTotal);
+                    } else {
+                        setTotalBudget(baseTotal);
                     }
                     if (data.accommodations_json) {
                         setBaguioAcc(data.accommodations_json.baguio || null);
@@ -90,11 +100,11 @@ export default function OverviewView() {
 
         // Listen for internal updates
         const handleItineraryUpdate = (e: any) => {
-            if (e.detail) {
+            if (e.detail && e.detail.length > 0) {
                 const total = e.detail.reduce((sum: number, item: any) => sum + (Number(item.cost) || 0), 0);
                 setTotalBudget(total);
             } else {
-                calculateTotal();
+                setTotalBudget(baseTotal);
             }
         };
 
