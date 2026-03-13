@@ -266,8 +266,11 @@ export default function OverviewView({ itineraryData = [] }: { itineraryData?: a
                                     </div>
                                     <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1 border-t border-slate-200 mt-2 pt-3">
                                         <div className="flex flex-col">
-                                            <span className="text-slate-500 font-medium">Itinerary Budget</span>
-                                            <span className="text-[10px] text-slate-400 italic">Excludes accommodation</span>
+                                            <span className="text-slate-500 font-medium flex items-center gap-1.5">
+                                                Itinerary Budget
+                                                <span className="text-[9px] font-bold tracking-wider text-emerald-600 uppercase bg-emerald-100/50 px-1.5 py-0.5 rounded border border-emerald-100">Est</span>
+                                            </span>
+                                            <span className="text-[10px] text-slate-400 italic mt-0.5">Excludes accommodation</span>
                                         </div>
                                         <div className="flex items-center justify-end">
                                             <span className="font-bold text-emerald-600 text-lg">₱{totalBudget.toLocaleString()}</span>
