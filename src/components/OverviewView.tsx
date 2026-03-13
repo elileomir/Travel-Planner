@@ -3,36 +3,47 @@
 import { CloudSun, Sunrise, Sunset, Wind, MapPin, Calendar, Home, Umbrella, Thermometer, Info } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect } from 'react';
+import { supabase } from '../lib/supabase';
+
+const TRIP_ID = 'b3d81829-5735-46fd-bcc5-7dfb2e27be8e';
 
 export default function OverviewView() {
     const [totalBudget, setTotalBudget] = useState(12500);
 
     useEffect(() => {
-        const calculateTotal = () => {
-            const savedItinerary = localStorage.getItem('custom_itinerary_items');
-            if (savedItinerary) {
-                try {
-                    const items = JSON.parse(savedItinerary);
-                    const itineraryTotal = items.reduce((sum: number, item: any) => sum + (Number(item.cost) || 0), 0);
+        const calculateTotal = async () => {
+            try {
+                const { data, error } = await supabase
+                    .from('trip_notes')
+                    .select('itinerary_json')
+                    .eq('trip_id', TRIP_ID)
+                    .single();
+
+                if (data && data.itinerary_json) {
+                    const itineraryTotal = data.itinerary_json.reduce((sum: number, item: any) => sum + (Number(item.cost) || 0), 0);
                     setTotalBudget(itineraryTotal);
-                } catch (e) {
-                    console.error("Error parsing itinerary for budget", e);
                 }
+            } catch (e) {
+                console.error("Error fetching itinerary for budget", e);
             }
         };
 
         calculateTotal();
 
-        const handleStorage = (e: StorageEvent) => {
-            if (e.key === 'custom_itinerary_items') calculateTotal();
+        // Listen for internal updates
+        const handleItineraryUpdate = (e: any) => {
+            if (e.detail) {
+                const total = e.detail.reduce((sum: number, item: any) => sum + (Number(item.cost) || 0), 0);
+                setTotalBudget(total);
+            } else {
+                calculateTotal();
+            }
         };
 
-        window.addEventListener('itineraryUpdated', calculateTotal);
-        window.addEventListener('storage', handleStorage);
+        window.addEventListener('itineraryUpdated', handleItineraryUpdate);
 
         return () => {
-            window.removeEventListener('itineraryUpdated', calculateTotal);
-            window.removeEventListener('storage', handleStorage);
+            window.removeEventListener('itineraryUpdated', handleItineraryUpdate);
         };
     }, []);
     return (
@@ -48,9 +59,9 @@ export default function OverviewView() {
                     <div className="flex justify-between items-start mb-6">
                         <div>
                             <h2 className="text-xl font-semibold opacity-90 flex items-center gap-2">
-                                <MapPin size={18} /> Baguio City
+                                <MapPin size={18} /> Baguio & La Union
                             </h2>
-                            <p className="text-blue-100 text-sm mt-1">Thursday, Mar 19</p>
+                            <p className="text-blue-100 text-sm mt-1">Thursday, Mar 19 - Mar 25</p>
                         </div>
                         <CloudSun size={48} className="text-yellow-300 drop-shadow-md" />
                     </div>
@@ -92,8 +103,8 @@ export default function OverviewView() {
                             </div>
                             <div>
                                 <p className="text-sm font-medium text-slate-500">Dates</p>
-                                <p className="text-slate-800 font-semibold mt-0.5">Mar 19 - 22, 2026</p>
-                                <p className="text-sm text-slate-500 mt-1">4 Days, 3 Nights</p>
+                                <p className="text-slate-800 font-semibold mt-0.5">Mar 19 - 25, 2026</p>
+                                <p className="text-sm text-slate-500 mt-1">7 Days, 6 Nights</p>
                             </div>
                         </div>
 
@@ -114,8 +125,8 @@ export default function OverviewView() {
                                         <span className="font-semibold text-slate-700">Thu, Mar 19 • 2:00 PM</span>
                                     </div>
                                     <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1">
-                                        <span className="text-slate-500">Check-out</span>
-                                        <span className="font-semibold text-slate-700">Sun, Mar 22 • 12:00 PM</span>
+                                        <span className="text-slate-500">Check-out (La Union)</span>
+                                        <span className="font-semibold text-slate-700">Wed, Mar 25 • 12:00 PM</span>
                                     </div>
                                     <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1 border-t border-slate-200 mt-2 pt-3">
                                         <div className="flex flex-col">

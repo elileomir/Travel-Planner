@@ -5,7 +5,10 @@ import { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import Map, { Marker, NavigationControl } from 'react-map-gl/mapbox';
+import { supabase } from '../lib/supabase';
 import 'mapbox-gl/dist/mapbox-gl.css';
+
+const TRIP_ID = 'b3d81829-5735-46fd-bcc5-7dfb2e27be8e';
 
 export interface ItineraryItem {
     id: string;
@@ -121,26 +124,52 @@ export default function ItineraryTimeline({
             try { setVisitedItemIds(new Set(JSON.parse(savedVisited))); } catch (e) { }
         }
 
-        const savedItinerary = localStorage.getItem('custom_itinerary_items');
-        if (savedItinerary) {
+        async function loadItinerary() {
             try {
-                const parsed = JSON.parse(savedItinerary);
-                const revived = parsed.map((i: any) => ({
-                    ...i,
-                    actualDate: new Date(i.actualDate)
-                }));
-                // Only use custom if it's not empty, otherwise default back to initialItems
-                if (revived.length > 0) setItems(revived);
-            } catch (e) {
-                console.error("Failed to load custom itinerary", e);
+                const { data, error } = await supabase
+                    .from('trip_notes')
+                    .select('itinerary_json')
+                    .eq('trip_id', TRIP_ID)
+                    .single();
+
+                if (data && data.itinerary_json) {
+                    const revived = data.itinerary_json.map((i: any) => ({
+                        ...i,
+                        actualDate: new Date(i.actualDate)
+                    }));
+                    if (revived.length > 0) setItems(revived);
+                }
+            } catch (err) {
+                console.error("Failed to load custom itinerary", err);
             }
         }
+        loadItinerary();
     }, [initialItems]);
 
-    const persistItems = (newItems: ItineraryItem[]) => {
+    const persistItems = async (newItems: ItineraryItem[]) => {
         setItems(newItems);
-        localStorage.setItem('custom_itinerary_items', JSON.stringify(newItems));
-        window.dispatchEvent(new Event('itineraryUpdated'));
+        window.dispatchEvent(new CustomEvent('itineraryUpdated', { detail: newItems }));
+
+        try {
+            const { data: existingData } = await supabase
+                .from('trip_notes')
+                .select('id')
+                .eq('trip_id', TRIP_ID)
+                .single();
+
+            if (existingData) {
+                await supabase
+                    .from('trip_notes')
+                    .update({ itinerary_json: newItems, updated_at: new Date().toISOString() })
+                    .eq('id', existingData.id);
+            } else {
+                await supabase
+                    .from('trip_notes')
+                    .insert([{ trip_id: TRIP_ID, itinerary_json: newItems }]);
+            }
+        } catch (error) {
+            console.error("Error saving itinerary to Supabase", error);
+        }
     };
 
     const toggleVisited = (item: ItineraryItem) => {
