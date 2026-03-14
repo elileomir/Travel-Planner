@@ -47,7 +47,7 @@ export default function PlacesView({ foodData, spotsData }: { foodData: any[], s
     });
 
     // Version key: bump this whenever CSVs are updated to force a data refresh
-    const DATA_VERSION = 'v19-final';
+    const DATA_VERSION = 'v20-override';
 
     useEffect(() => {
         const storedVersion = localStorage.getItem('places_data_version');

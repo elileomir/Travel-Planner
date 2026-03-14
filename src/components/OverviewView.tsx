@@ -101,7 +101,11 @@ export default function OverviewView({ itineraryData = [] }: { itineraryData?: a
 
                 if (data) {
                     if (data.itinerary_json && data.itinerary_json.length > 0) {
-                        const itineraryTotal = data.itinerary_json.reduce((sum: number, item: any) => sum + (Number(item.cost) || 0), 0);
+                        // Use costForTwo for consistent budget calculation (total for couple)
+                        const itineraryTotal = data.itinerary_json.reduce((sum: number, item: any) => {
+                            const forTwo = Number(item.costForTwo) || (Number(item.cost) || 0) * 2;
+                            return sum + forTwo;
+                        }, 0);
                         setTotalBudget(itineraryTotal);
                     } else {
                         setTotalBudget(baseTotal);
@@ -121,7 +125,10 @@ export default function OverviewView({ itineraryData = [] }: { itineraryData?: a
         // Listen for internal updates
         const handleItineraryUpdate = (e: any) => {
             if (e.detail && e.detail.length > 0) {
-                const total = e.detail.reduce((sum: number, item: any) => sum + (Number(item.cost) || 0), 0);
+                const total = e.detail.reduce((sum: number, item: any) => {
+                    const forTwo = Number(item.costForTwo) || (Number(item.cost) || 0) * 2;
+                    return sum + forTwo;
+                }, 0);
                 setTotalBudget(total);
             } else {
                 setTotalBudget(baseTotal);
@@ -205,7 +212,7 @@ export default function OverviewView({ itineraryData = [] }: { itineraryData?: a
 
                                 {/* Baguio Stay */}
                                 <div className="mb-4">
-                                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Baguio (Mar 19 - Mar 22)</p>
+                                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Baguio (Mar 19 - Mar 23)</p>
                                     {baguioAcc ? (
                                         <div className="flex items-center justify-between bg-slate-50 p-2.5 rounded-xl border border-slate-100 group">
                                             <a href={baguioAcc.link} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-emerald-600 font-semibold hover:text-emerald-700 transition-colors w-full overflow-hidden">
@@ -241,7 +248,7 @@ export default function OverviewView({ itineraryData = [] }: { itineraryData?: a
 
                                 {/* La Union Stay */}
                                 <div>
-                                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">La Union (Mar 22 - Mar 25)</p>
+                                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">La Union (Mar 23 - Mar 25)</p>
                                     {luAcc ? (
                                         <div className="flex items-center justify-between bg-slate-50 p-2.5 rounded-xl border border-slate-100 group">
                                             <a href={luAcc.link} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-emerald-600 font-semibold hover:text-emerald-700 transition-colors w-full overflow-hidden">

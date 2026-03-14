@@ -19,6 +19,7 @@ export interface ItineraryItem {
     location: string;
     coordinates?: [number, number];
     cost: number;
+    costForTwo?: number; // total cost for 2 people (used for budget calculation)
     notes?: string;
     link?: string;
     actualDate: Date;
@@ -446,6 +447,12 @@ export default function ItineraryTimeline({
                             <span className="flex items-center text-[11px] font-medium text-slate-400">
                                 {item.duration} min
                             </span>
+                            <span className="text-[10px] font-semibold text-slate-400 bg-slate-50 px-2 py-0.5 rounded-md border border-slate-100">
+                                {item.actualDate instanceof Date && !isNaN(item.actualDate.getTime())
+                                    ? item.actualDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', weekday: 'short' })
+                                    : item.day.replace(/Day \d+\s*/, '').replace(/[()]/g, '').trim() || item.day
+                                }
+                            </span>
                         </div>
                     </div>
 
@@ -474,9 +481,9 @@ export default function ItineraryTimeline({
                             </button>
                         </div>
 
-                        {item.cost > 0 && (
+                        {(item.costForTwo || item.cost) > 0 && (
                             <div className="relative flex items-center gap-0.5 text-xs font-semibold text-emerald-700">
-                                ₱{item.cost}
+                                ₱{item.costForTwo || item.cost}
                                 <button
                                     onClick={(e) => {
                                         e.stopPropagation();

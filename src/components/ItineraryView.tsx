@@ -4,10 +4,13 @@ import { useState } from 'react';
 import { MapIcon, LayoutListIcon } from 'lucide-react';
 import ItineraryTimeline, { ItineraryItem } from './ItineraryTimeline';
 import Map3D from './Map3D';
+import NavigationSheet from './NavigationSheet';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function ItineraryView({ itineraryData }: { itineraryData: any[] }) {
     const [activeItem, setActiveItem] = useState<ItineraryItem | null>(null);
+    // Mobile navigation sheet (separate from desktop map)
+    const [mobileNavItem, setMobileNavItem] = useState<ItineraryItem | null>(null);
 
     // Format CSV data to match the expected timeline interface
     const formattedItems = itineraryData.filter(i => i.Activity).map((item, index) => {
@@ -39,6 +42,11 @@ export default function ItineraryView({ itineraryData }: { itineraryData: any[] 
             destination = 'Home';
         }
 
+        // Parse both cost columns
+        const costPerPerson = parseFloat(item['Cost per Person (₱)']) || 0;
+        const costForTwoRaw = item['Cost for 2 (₱)'];
+        const costForTwo = costForTwoRaw ? Number(String(costForTwoRaw).replace(/[^0-9.-]+/g, "")) : costPerPerson * 2;
+
         return {
             id: String(index),
             day: dayStr,
@@ -48,7 +56,8 @@ export default function ItineraryView({ itineraryData }: { itineraryData: any[] 
                 : parseInt(item.Duration) || 60,
             activity: item.Activity,
             location: item.Location,
-            cost: parseFloat(item['Cost per Person (₱)']) || 0,
+            cost: costPerPerson,
+            costForTwo,
             notes: item.Notes,
             link: item.Link,
             actualDate: baseDate,
@@ -58,20 +67,30 @@ export default function ItineraryView({ itineraryData }: { itineraryData: any[] 
         };
     });
 
+    // Handle "Show Route" — mobile gets bottom sheet, desktop gets map panel
+    const handleShowMap = (item: ItineraryItem) => {
+        // Check if we're on mobile using matchMedia (client-side only)
+        const isMobile = typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches;
+
+        if (isMobile) {
+            setMobileNavItem(item);
+        } else {
+            setActiveItem(item);
+        }
+    };
+
     return (
-        <div className="flex flex-col md:flex-row w-full flex-1 relative overflow-hidden bg-slate-50">
-            {/* Left Panel: Itinerary Details */}
-            <div className={`w-full md:w-[600px] flex flex-col bg-white border-r border-slate-200 flex-1 relative z-20 ${activeItem ? 'hidden md:flex' : 'flex'}`}>
+        <div className="flex flex-col md:flex-row w-full flex-1 relative overflow-hidden bg-slate-50 md:h-[calc(100dvh-4rem)]">
+            {/* Left Panel: Itinerary Details — scrolls independently */}
+            <div className={`w-full md:w-[600px] flex flex-col bg-white border-r border-slate-200 flex-1 md:flex-none relative z-20 md:h-full md:overflow-hidden ${activeItem ? 'hidden md:flex' : 'flex'}`}>
                 <ItineraryTimeline
                     initialItems={formattedItems}
-                    onShowMap={(item) => {
-                        setActiveItem(item);
-                    }}
+                    onShowMap={handleShowMap}
                 />
             </div>
 
-            {/* Right Panel: Lazy Map (Only visible occasionally or on desktop) */}
-            <div className={`flex-1 relative ${activeItem ? 'flex' : 'hidden'} md:flex bg-slate-100 items-center justify-center`}>
+            {/* Right Panel: Desktop-only interactive map */}
+            <div className={`flex-1 relative ${activeItem ? 'flex' : 'hidden'} md:flex bg-slate-100 items-center justify-center h-[calc(100dvh-4rem)]`}>
 
                 {!activeItem && (
                     <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-400 bg-slate-100/50 backdrop-blur-sm z-10 px-8 text-center">
@@ -86,6 +105,12 @@ export default function ItineraryView({ itineraryData }: { itineraryData: any[] 
                     onCloseMap={() => setActiveItem(null)}
                 />
             </div>
+
+            {/* Mobile Navigation Bottom Sheet */}
+            <NavigationSheet
+                item={mobileNavItem}
+                onClose={() => setMobileNavItem(null)}
+            />
         </div>
     );
 }

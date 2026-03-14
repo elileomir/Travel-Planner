@@ -14,23 +14,46 @@ interface Map3DProps {
 export default function Map3D({ activeItem, onCloseMap }: Map3DProps) {
     const mapRef = useRef<MapRef>(null);
 
-    const [userCoords, setUserCoords] = useState<[number, number]>([120.5960, 16.4023]); // Default Baguio Center
+    // Smart default center: use destination-appropriate center when GPS is unavailable
+    const getDefaultCenter = (): [number, number] => {
+        if (activeItem) {
+            const dest = (activeItem as any).destination || '';
+            if (dest.includes('La Union') || dest.includes('Elyu')) {
+                return [120.3214, 16.6584]; // San Juan, La Union center
+            }
+        }
+        return [120.5960, 16.4023]; // Baguio City center
+    };
+
+    const [userCoords, setUserCoords] = useState<[number, number]>(getDefaultCenter());
+    const userCoordsRef = useRef<[number, number]>(getDefaultCenter());
     const [destCoords, setDestCoords] = useState<[number, number] | null>(null);
     const [routeGeoJSON, setRouteGeoJSON] = useState<any>(null);
     const [routeETA, setRouteETA] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [locationEnabled, setLocationEnabled] = useState(false);
 
-    // Initial Geolocation lazy fetch
+    // Reset default center when switching destination context (Baguio ↔ La Union)
+    useEffect(() => {
+        if (!locationEnabled) {
+            const center = getDefaultCenter();
+            setUserCoords(center);
+            userCoordsRef.current = center;
+        }
+    }, [activeItem?.destination]);
+
+    // Initial Geolocation lazy fetch — only runs once per activeItem change
     useEffect(() => {
         if (activeItem && navigator.geolocation) {
             navigator.geolocation.getCurrentPosition(
                 (pos) => {
-                    setUserCoords([pos.coords.longitude, pos.coords.latitude]);
+                    const coords: [number, number] = [pos.coords.longitude, pos.coords.latitude];
+                    setUserCoords(coords);
+                    userCoordsRef.current = coords;
                     setLocationEnabled(true);
                 },
                 (err) => {
-                    console.log('Geolocation denied or failed, using default baguio coords', err);
+                    console.log('Geolocation denied or failed, using default coords', err);
                     setLocationEnabled(false);
                 }
             );
@@ -114,14 +137,15 @@ export default function Map3D({ activeItem, onCloseMap }: Map3DProps) {
                 }
 
                 // Fetch Directions with full accuracy params (Try Traffic first)
-                let routeUrl = `https://api.mapbox.com/directions/v5/mapbox/driving-traffic/${userCoords[0]},${userCoords[1]};${destLngLat[0]},${destLngLat[1]}?geometries=geojson&overview=full&steps=true&annotations=distance,duration,congestion&access_token=${token}`;
+                const origin = userCoordsRef.current;
+                let routeUrl = `https://api.mapbox.com/directions/v5/mapbox/driving-traffic/${origin[0]},${origin[1]};${destLngLat[0]},${destLngLat[1]}?geometries=geojson&overview=full&steps=true&annotations=distance,duration,congestion&access_token=${token}`;
                 let routeRes = await fetch(routeUrl);
                 let routeData = await routeRes.json();
 
                 // Fallback to standard driving if driving-traffic fails (e.g., for very long routes like Manila to Baguio)
                 if (!routeData.routes || routeData.routes.length === 0) {
                     console.log("driving-traffic failed or returned no routes, falling back to standard driving profile...");
-                    routeUrl = `https://api.mapbox.com/directions/v5/mapbox/driving/${userCoords[0]},${userCoords[1]};${destLngLat[0]},${destLngLat[1]}?geometries=geojson&overview=full&steps=true&annotations=distance,duration&access_token=${token}`;
+                    routeUrl = `https://api.mapbox.com/directions/v5/mapbox/driving/${origin[0]},${origin[1]};${destLngLat[0]},${destLngLat[1]}?geometries=geojson&overview=full&steps=true&annotations=distance,duration&access_token=${token}`;
                     routeRes = await fetch(routeUrl);
                     routeData = await routeRes.json();
                 }
@@ -160,10 +184,11 @@ export default function Map3D({ activeItem, onCloseMap }: Map3DProps) {
                                     if (lat > maxLat) maxLat = lat;
                                 }
                                 // Also include user coords in bounds
-                                if (userCoords[0] < minLng) minLng = userCoords[0];
-                                if (userCoords[0] > maxLng) maxLng = userCoords[0];
-                                if (userCoords[1] < minLat) minLat = userCoords[1];
-                                if (userCoords[1] > maxLat) maxLat = userCoords[1];
+                                const uc = userCoordsRef.current;
+                                if (uc[0] < minLng) minLng = uc[0];
+                                if (uc[0] > maxLng) maxLng = uc[0];
+                                if (uc[1] < minLat) minLat = uc[1];
+                                if (uc[1] > maxLat) maxLat = uc[1];
 
                                 const bounds: [[number, number], [number, number]] = [
                                     [minLng, minLat],
@@ -194,7 +219,7 @@ export default function Map3D({ activeItem, onCloseMap }: Map3DProps) {
         };
 
         fetchRoute();
-    }, [activeItem, userCoords]);
+    }, [activeItem]); // Only re-fetch when activeItem changes, NOT on userCoords change
 
     const onMapLoad = useCallback((e: any) => {
         const map = e.target;
@@ -300,6 +325,7 @@ export default function Map3D({ activeItem, onCloseMap }: Map3DProps) {
                 mapStyle="mapbox://styles/mapbox/light-v11"
                 mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN}
                 onLoad={onMapLoad}
+                style={{ width: '100%', height: '100%' }}
             >
                 <NavigationControl position="bottom-right" />
 
