@@ -19,7 +19,10 @@ export default function Map3D({ activeItem, onCloseMap }: Map3DProps) {
         if (activeItem) {
             const dest = (activeItem as any).destination || '';
             if (dest.includes('La Union') || dest.includes('Elyu')) {
-                return [120.3214, 16.6584]; // San Juan, La Union center
+                return [120.3214, 16.6192]; // Urbiztondo, San Juan, La Union
+            }
+            if (dest.includes('En Route') || dest === 'Home' || dest.includes('San Pedro')) {
+                return [121.0434, 14.4869]; // SM Bicutan area (home base)
             }
         }
         return [120.5960, 16.4023]; // Baguio City center

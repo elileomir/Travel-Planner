@@ -1,6 +1,6 @@
 'use client';
 
-import { CloudSun, Sunrise, Sunset, Wind, MapPin, Calendar, Home, Umbrella, Thermometer, Info, Edit2, Trash2, Plus, Check, X, Link as LinkIcon } from 'lucide-react';
+import { CloudSun, Sunrise, Sunset, Wind, MapPin, Calendar, Home, Umbrella, Thermometer, Info, Edit2, Trash2, Plus, Check, X, Link as LinkIcon, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
@@ -71,24 +71,60 @@ export default function OverviewView({ itineraryData = [] }: { itineraryData?: a
     const handleRemoveLu = () => saveAccommodations(baguioAcc, null);
 
     const [weather, setWeather] = useState({ temp: 16, max: 24, min: 14, wind: 12, rain: 20 });
+    const [weatherLoc, setWeatherLoc] = useState<'baguio' | 'la_union' | 'my_location'>('baguio');
+    const [isWeatherLoading, setIsWeatherLoading] = useState(false);
 
     useEffect(() => {
-        // Fetch real-time weather for Baguio City (No API Key Required)
-        fetch('https://api.open-meteo.com/v1/forecast?latitude=16.416&longitude=120.593&current=temperature_2m,wind_speed_10m&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=Asia%2FManila')
-            .then(res => res.json())
-            .then(data => {
-                if (data && data.current && data.daily) {
-                    setWeather({
-                        temp: Math.round(data.current.temperature_2m),
-                        max: Math.round(data.daily.temperature_2m_max[0]),
-                        min: Math.round(data.daily.temperature_2m_min[0]),
-                        wind: Math.round(data.current.wind_speed_10m),
-                        rain: data.daily.precipitation_probability_max[0]
-                    });
-                }
-            })
-            .catch(err => console.error("Weather fetch error", err));
-    }, []);
+        let isMounted = true;
+        setIsWeatherLoading(true);
+
+        const fetchWeather = (lat: number, lng: number) => {
+            fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,wind_speed_10m&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=Asia%2FManila`)
+                .then(res => res.json())
+                .then(data => {
+                    if (isMounted && data && data.current && data.daily) {
+                        setWeather({
+                            temp: Math.round(data.current.temperature_2m),
+                            max: Math.round(data.daily.temperature_2m_max[0]),
+                            min: Math.round(data.daily.temperature_2m_min[0]),
+                            wind: Math.round(data.current.wind_speed_10m),
+                            rain: data.daily.precipitation_probability_max[0]
+                        });
+                        setIsWeatherLoading(false);
+                    }
+                })
+                .catch(err => {
+                    if (isMounted) {
+                        console.error("Weather fetch error", err);
+                        setIsWeatherLoading(false);
+                    }
+                });
+        };
+
+        if (weatherLoc === 'baguio') {
+            fetchWeather(16.416, 120.593);
+        } else if (weatherLoc === 'la_union') {
+            fetchWeather(16.6192, 120.3214); // San Juan, La Union
+        } else if (weatherLoc === 'my_location') {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        fetchWeather(position.coords.latitude, position.coords.longitude);
+                    },
+                    (error) => {
+                        console.error("Error getting location", error);
+                        // Fallback to Manila
+                        fetchWeather(14.5995, 120.9842);
+                    }
+                );
+            } else {
+                // Fallback to Manila
+                fetchWeather(14.5995, 120.9842);
+            }
+        }
+
+        return () => { isMounted = false; };
+    }, [weatherLoc]);
 
     useEffect(() => {
         const calculateTotal = async () => {
@@ -149,21 +185,44 @@ export default function OverviewView({ itineraryData = [] }: { itineraryData?: a
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="flex-1 bg-gradient-to-br from-blue-500 to-blue-700 rounded-3xl p-6 text-white shadow-lg shadow-blue-500/20"
+                    className="flex-1 bg-gradient-to-br from-blue-500 to-blue-700 rounded-3xl p-6 text-white shadow-lg shadow-blue-500/20 flex flex-col"
                 >
-                    <div className="flex justify-between items-start mb-6">
+                    <div className="flex justify-between items-start mb-4">
                         <div>
                             <h2 className="text-xl font-semibold opacity-90 flex items-center gap-2">
-                                <MapPin size={18} /> Baguio City
+                                <MapPin size={18} />
+                                {weatherLoc === 'baguio' ? 'Baguio City' : weatherLoc === 'la_union' ? 'La Union' : 'My Location'}
                             </h2>
                             <p className="text-blue-100 text-sm mt-1">Real-time Current Weather</p>
                         </div>
-                        <CloudSun size={48} className="text-yellow-300 drop-shadow-md" />
+                        <CloudSun size={48} className="text-yellow-300 drop-shadow-md shrink-0" />
                     </div>
 
-                    <div className="flex items-end gap-4 mb-8">
-                        <span className="text-6xl font-bold tracking-tighter">{weather.temp}°</span>
-                        <span className="text-2xl font-medium text-blue-100 pb-2">/ {weather.max}°</span>
+                    {/* Location Switcher */}
+                    <div className="flex gap-2 mb-6 bg-black/10 p-1.5 rounded-full overflow-x-auto no-scrollbar self-start">
+                        {(['baguio', 'la_union', 'my_location'] as const).map((loc) => (
+                            <button
+                                key={loc}
+                                onClick={() => setWeatherLoc(loc)}
+                                className={`px-4 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all touch-manipulation cursor-pointer ${weatherLoc === loc ? 'bg-white text-blue-600 shadow-sm' : 'text-blue-100 hover:text-white hover:bg-white/10'}`}
+                            >
+                                {loc === 'baguio' ? 'Baguio' : loc === 'la_union' ? 'La Union' : 'My Location'}
+                            </button>
+                        ))}
+                    </div>
+
+                    <div className="flex items-end gap-4 mb-auto pb-6">
+                        {isWeatherLoading ? (
+                            <div className="flex items-center gap-3 h-[60px]">
+                                <Loader2 className="w-8 h-8 animate-spin text-white/80" />
+                                <span className="text-xl text-blue-100 animate-pulse">Updating...</span>
+                            </div>
+                        ) : (
+                            <>
+                                <span className="text-6xl font-bold tracking-tighter transition-all">{weather.temp}°</span>
+                                <span className="text-2xl font-medium text-blue-100 pb-2">/ {weather.max}°</span>
+                            </>
+                        )}
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
@@ -210,45 +269,9 @@ export default function OverviewView({ itineraryData = [] }: { itineraryData?: a
                             <div className="w-full">
                                 <p className="text-sm font-medium text-slate-500 mb-3">Accommodations</p>
 
-                                {/* Baguio Stay */}
+                                {/* La Union Stay (First Stop) */}
                                 <div className="mb-4">
-                                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Baguio (Mar 19 - Mar 23)</p>
-                                    {baguioAcc ? (
-                                        <div className="flex items-center justify-between bg-slate-50 p-2.5 rounded-xl border border-slate-100 group">
-                                            <a href={baguioAcc.link} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-emerald-600 font-semibold hover:text-emerald-700 transition-colors w-full overflow-hidden">
-                                                <LinkIcon size={14} className="shrink-0" />
-                                                <span className="truncate text-sm">{baguioAcc.name}</span>
-                                            </a>
-                                            <button onClick={handleRemoveBaguio} className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-md transition-all lg:opacity-0 lg:group-hover:opacity-100">
-                                                <Trash2 size={14} />
-                                            </button>
-                                        </div>
-                                    ) : isEditingBaguio ? (
-                                        <div className="flex items-center gap-2 bg-slate-50 p-1.5 rounded-xl border border-slate-200 focus-within:border-emerald-300 focus-within:ring-2 focus-within:ring-emerald-50 transition-all">
-                                            <input
-                                                type="url"
-                                                value={baguioTempLink}
-                                                onChange={e => setBaguioTempLink(e.target.value)}
-                                                placeholder="Paste Airbnb/Agoda link..."
-                                                autoFocus
-                                                className="w-full bg-transparent text-sm outline-none px-2 text-slate-700"
-                                                onKeyDown={e => e.key === 'Enter' && handleSaveBaguio()}
-                                            />
-                                            <div className="flex items-center gap-1 shrink-0">
-                                                <button onClick={handleSaveBaguio} className="p-1.5 bg-emerald-100 text-emerald-600 rounded-lg hover:bg-emerald-200 transition-colors"><Check size={14} /></button>
-                                                <button onClick={() => setIsEditingBaguio(false)} className="p-1.5 bg-slate-200 text-slate-600 rounded-lg hover:bg-slate-300 transition-colors"><X size={14} /></button>
-                                            </div>
-                                        </div>
-                                    ) : (
-                                        <button onClick={() => setIsEditingBaguio(true)} className="flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-emerald-600 bg-slate-50 hover:bg-emerald-50 px-3 py-2 rounded-xl border border-slate-100 hover:border-emerald-100 transition-all w-full border-dashed group">
-                                            <Plus size={14} className="group-hover:scale-110 transition-transform" /> Add Baguio Stay
-                                        </button>
-                                    )}
-                                </div>
-
-                                {/* La Union Stay */}
-                                <div>
-                                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">La Union (Mar 23 - Mar 25)</p>
+                                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">La Union (Mar 19 - Mar 21)</p>
                                     {luAcc ? (
                                         <div className="flex items-center justify-between bg-slate-50 p-2.5 rounded-xl border border-slate-100 group">
                                             <a href={luAcc.link} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-emerald-600 font-semibold hover:text-emerald-700 transition-colors w-full overflow-hidden">
@@ -282,14 +305,50 @@ export default function OverviewView({ itineraryData = [] }: { itineraryData?: a
                                     )}
                                 </div>
 
+                                {/* Baguio Stay (Second Stop) */}
+                                <div>
+                                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Baguio (Mar 21 - Mar 25)</p>
+                                    {baguioAcc ? (
+                                        <div className="flex items-center justify-between bg-slate-50 p-2.5 rounded-xl border border-slate-100 group">
+                                            <a href={baguioAcc.link} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-emerald-600 font-semibold hover:text-emerald-700 transition-colors w-full overflow-hidden">
+                                                <LinkIcon size={14} className="shrink-0" />
+                                                <span className="truncate text-sm">{baguioAcc.name}</span>
+                                            </a>
+                                            <button onClick={handleRemoveBaguio} className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-md transition-all lg:opacity-0 lg:group-hover:opacity-100">
+                                                <Trash2 size={14} />
+                                            </button>
+                                        </div>
+                                    ) : isEditingBaguio ? (
+                                        <div className="flex items-center gap-2 bg-slate-50 p-1.5 rounded-xl border border-slate-200 focus-within:border-emerald-300 focus-within:ring-2 focus-within:ring-emerald-50 transition-all">
+                                            <input
+                                                type="url"
+                                                value={baguioTempLink}
+                                                onChange={e => setBaguioTempLink(e.target.value)}
+                                                placeholder="Paste Airbnb/Agoda link..."
+                                                autoFocus
+                                                className="w-full bg-transparent text-sm outline-none px-2 text-slate-700"
+                                                onKeyDown={e => e.key === 'Enter' && handleSaveBaguio()}
+                                            />
+                                            <div className="flex items-center gap-1 shrink-0">
+                                                <button onClick={handleSaveBaguio} className="p-1.5 bg-emerald-100 text-emerald-600 rounded-lg hover:bg-emerald-200 transition-colors"><Check size={14} /></button>
+                                                <button onClick={() => setIsEditingBaguio(false)} className="p-1.5 bg-slate-200 text-slate-600 rounded-lg hover:bg-slate-300 transition-colors"><X size={14} /></button>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <button onClick={() => setIsEditingBaguio(true)} className="flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-emerald-600 bg-slate-50 hover:bg-emerald-50 px-3 py-2 rounded-xl border border-slate-100 hover:border-emerald-100 transition-all w-full border-dashed group">
+                                            <Plus size={14} className="group-hover:scale-110 transition-transform" /> Add Baguio Stay
+                                        </button>
+                                    )}
+                                </div>
+
                                 <div className="text-sm text-slate-600 mt-5 space-y-2 bg-slate-50 p-3.5 rounded-xl border border-slate-100">
                                     <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1">
                                         <span className="text-slate-500">Trip Starts</span>
                                         <span className="font-semibold text-slate-700">Thu, Mar 19 • Early Morning</span>
                                     </div>
                                     <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1">
-                                        <span className="text-slate-500">Check-out (La Union)</span>
-                                        <span className="font-semibold text-slate-700">Wed, Mar 25 • 12:00 PM</span>
+                                        <span className="text-slate-500">Depart Baguio</span>
+                                        <span className="font-semibold text-slate-700">Tue, Mar 24 • 4:00 PM</span>
                                     </div>
                                     <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1 border-t border-slate-200 mt-2 pt-3">
                                         <div className="flex flex-col">

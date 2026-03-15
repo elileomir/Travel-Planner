@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MapPin, Clock, Utensils, MountainSnow, Plus, Trash2, Edit2, X, Save, Banknote } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 
 export type PlaceType = 'spot' | 'food';
 
@@ -46,16 +47,13 @@ export default function PlacesView({ foodData, spotsData }: { foodData: any[], s
         isCustom: true
     });
 
-    // Version key: bump this whenever CSVs are updated to force a data refresh
-    const DATA_VERSION = 'v20-override';
+    const TRIP_ID = 'b3d81829-5735-46fd-bcc5-7dfb2e27be8e';
+    const isLoadedRef = useRef(false);
 
-    useEffect(() => {
-        const storedVersion = localStorage.getItem('places_data_version');
-        const saved = localStorage.getItem('custom_places_items');
-
-        // Parse fresh data from CSVs
+    // Parse CSV data into PlaceItem format
+    const buildCsvItems = (): PlaceItem[] => {
         const initialSpots: PlaceItem[] = spotsData.filter(s => s.Attraction || s.Spot).map(s => ({
-            id: crypto.randomUUID(), type: 'spot',
+            id: crypto.randomUUID(), type: 'spot' as PlaceType,
             title: s.Attraction || s.Spot, category: s.Category || 'Landmark',
             description: s.Highlights || s.Description || '', location: s.Address || s.Location || '',
             durationOrTime: `${s['Best Time'] || 'Anytime'} (${s['Suggested Duration'] || s.Duration || ''})`,
@@ -66,7 +64,7 @@ export default function PlacesView({ foodData, spotsData }: { foodData: any[], s
             isCustom: false
         }));
         const initialFood: PlaceItem[] = foodData.filter(f => f['Restaurant / Food Spot'] || f.Restaurant).map(f => ({
-            id: crypto.randomUUID(), type: 'food',
+            id: crypto.randomUUID(), type: 'food' as PlaceType,
             title: f['Restaurant / Food Spot'] || f.Restaurant,
             category: f['Cuisine / Type'] || f.Cuisine || 'Local',
             description: f['Specialty / Must Try'] || (f['Must Try'] ? `Must Try: ${f['Must Try']}` : ''),
@@ -78,41 +76,64 @@ export default function PlacesView({ foodData, spotsData }: { foodData: any[], s
             longitude: f.Longitude ? Number(f.Longitude) : undefined,
             isCustom: false
         }));
+        return [...initialSpots, ...initialFood];
+    };
 
-        const csvItems = [...initialSpots, ...initialFood];
-
-        if (storedVersion === DATA_VERSION && saved) {
-            // Version matches: keep custom items, refresh CSV items
+    // Load places from Supabase on mount; seed CSV data if empty
+    useEffect(() => {
+        async function loadPlaces() {
             try {
-                const existing: PlaceItem[] = JSON.parse(saved);
-                const customOnly = existing.filter(p => p.isCustom);
-                const combined = [...csvItems, ...customOnly];
-                setPlaces(combined);
-                localStorage.setItem('custom_places_items', JSON.stringify(combined));
-            } catch {
-                setPlaces(csvItems);
-                localStorage.setItem('custom_places_items', JSON.stringify(csvItems));
+                const { data, error } = await supabase
+                    .from('trip_notes')
+                    .select('places_json')
+                    .eq('trip_id', TRIP_ID)
+                    .single();
+
+                if (data && data.places_json && data.places_json.length > 0) {
+                    // Supabase has saved places — use them
+                    setPlaces(data.places_json);
+                } else {
+                    // No saved places — seed with CSV data and persist to Supabase
+                    const csvItems = buildCsvItems();
+                    setPlaces(csvItems);
+                    await persistToSupabase(csvItems);
+                }
+            } catch (err) {
+                console.error('Failed to load places from Supabase, using CSV fallback', err);
+                setPlaces(buildCsvItems());
             }
-        } else {
-            // Version mismatch or first load: wipe old data, load fresh CSVs
-            // Preserve any custom items if they exist
-            let customOnly: PlaceItem[] = [];
-            if (saved) {
-                try {
-                    const existing: PlaceItem[] = JSON.parse(saved);
-                    customOnly = existing.filter(p => p.isCustom);
-                } catch { /* ignore */ }
-            }
-            const combined = [...csvItems, ...customOnly];
-            setPlaces(combined);
-            localStorage.setItem('custom_places_items', JSON.stringify(combined));
-            localStorage.setItem('places_data_version', DATA_VERSION);
+            isLoadedRef.current = true;
         }
+        loadPlaces();
     }, [foodData, spotsData]);
+
+    // Save places array to Supabase
+    const persistToSupabase = async (items: PlaceItem[]) => {
+        try {
+            const { data: existingData } = await supabase
+                .from('trip_notes')
+                .select('id')
+                .eq('trip_id', TRIP_ID)
+                .single();
+
+            if (existingData) {
+                await supabase
+                    .from('trip_notes')
+                    .update({ places_json: items, updated_at: new Date().toISOString() })
+                    .eq('id', existingData.id);
+            } else {
+                await supabase
+                    .from('trip_notes')
+                    .insert([{ trip_id: TRIP_ID, places_json: items }]);
+            }
+        } catch (error) {
+            console.error('Error saving places to Supabase', error);
+        }
+    };
 
     const persistPlaces = (newPlaces: PlaceItem[]) => {
         setPlaces(newPlaces);
-        localStorage.setItem('custom_places_items', JSON.stringify(newPlaces));
+        persistToSupabase(newPlaces);
     };
 
     const handleSave = () => {

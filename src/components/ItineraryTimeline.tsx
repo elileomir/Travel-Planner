@@ -31,7 +31,8 @@ export interface ItineraryItem {
 // Destination theming helper
 const getDestinationTheme = (dest?: string) => {
     if (!dest) return { label: 'Baguio', emoji: '🏔️', bg: 'bg-blue-100', text: 'text-blue-700', border: 'border-blue-300', headerBorder: 'border-l-blue-500' };
-    if (dest === 'Home') return { label: 'Home', emoji: '🏠', bg: 'bg-emerald-100', text: 'text-emerald-700', border: 'border-emerald-300', headerBorder: 'border-l-emerald-500' };
+    if (dest === 'Home' || dest.includes('San Pedro')) return { label: 'Home', emoji: '🏠', bg: 'bg-emerald-100', text: 'text-emerald-700', border: 'border-emerald-300', headerBorder: 'border-l-emerald-500' };
+    if (dest.includes('En Route')) return { label: 'En Route', emoji: '🚗', bg: 'bg-slate-100', text: 'text-slate-600', border: 'border-slate-300', headerBorder: 'border-l-slate-400' };
     if (dest.includes('La Union') || dest.includes('Elyu')) return { label: 'Elyu', emoji: '🏖️', bg: 'bg-amber-100', text: 'text-amber-700', border: 'border-amber-300', headerBorder: 'border-l-amber-500' };
     return { label: 'Baguio', emoji: '🏔️', bg: 'bg-blue-100', text: 'text-blue-700', border: 'border-blue-300', headerBorder: 'border-l-blue-500' };
 };
