@@ -24,7 +24,7 @@ export interface PlaceItem {
 
 export default function PlacesView({ foodData, spotsData }: { foodData: any[], spotsData: any[] }) {
     const [destinationFilter, setDestinationFilter] = useState<'Baguio' | 'La Union (Elyu)'>('Baguio');
-    const [filter, setFilter] = useState<'all' | 'food' | 'spots'>('all');
+    const [filter, setFilter] = useState<'all' | 'food' | 'spot'>('all');
     const [places, setPlaces] = useState<PlaceItem[]>([]);
 
     // Modals
@@ -91,7 +91,18 @@ export default function PlacesView({ foodData, spotsData }: { foodData: any[], s
 
                 if (data && data.places_json && data.places_json.length > 0) {
                     // Supabase has saved places — use them
-                    setPlaces(data.places_json);
+                    // But also merge any missing CSV items (e.g. if La Union was added later)
+                    const savedPlaces: PlaceItem[] = data.places_json;
+                    const csvItems = buildCsvItems();
+                    const savedTitles = new Set(savedPlaces.map((p: PlaceItem) => `${p.title}__${p.destination}`));
+                    const missingItems = csvItems.filter(ci => !savedTitles.has(`${ci.title}__${ci.destination}`));
+                    if (missingItems.length > 0) {
+                        const merged = [...savedPlaces, ...missingItems];
+                        setPlaces(merged);
+                        await persistToSupabase(merged);
+                    } else {
+                        setPlaces(savedPlaces);
+                    }
                 } else {
                     // No saved places — seed with CSV data and persist to Supabase
                     const csvItems = buildCsvItems();
@@ -230,9 +241,9 @@ export default function PlacesView({ foodData, spotsData }: { foodData: any[], s
 
                 <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
                     <div className="flex bg-slate-100 p-1 rounded-xl shadow-inner">
-                        <button onClick={() => setFilter('all')} className={`flex-1 md:flex-none px-5 py-2 rounded-lg text-sm font-semibold transition-all ${filter === 'all' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>All</button>
-                        <button onClick={() => setFilter('spots')} className={`flex-1 md:flex-none px-5 py-2 rounded-lg text-sm font-semibold transition-all ${filter === 'spots' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>Attractions</button>
-                        <button onClick={() => setFilter('food')} className={`flex-1 md:flex-none px-5 py-2 rounded-lg text-sm font-semibold transition-all ${filter === 'food' ? 'bg-white text-orange-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>Food</button>
+                        <button onClick={() => setFilter('all')} className={`flex-1 md:flex-none px-5 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer ${filter === 'all' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>All</button>
+                        <button onClick={() => setFilter('spot')} className={`flex-1 md:flex-none px-5 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer ${filter === 'spot' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>Attractions</button>
+                        <button onClick={() => setFilter('food')} className={`flex-1 md:flex-none px-5 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer ${filter === 'food' ? 'bg-white text-orange-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>Food</button>
                     </div>
                     <button onClick={openAddModal} className="flex items-center justify-center gap-2 px-5 py-2 text-sm font-bold text-white bg-slate-800 hover:bg-slate-900 rounded-xl transition-colors shadow-sm whitespace-nowrap cursor-pointer">
                         <Plus size={16} /> Add
@@ -300,7 +311,7 @@ export default function PlacesView({ foodData, spotsData }: { foodData: any[], s
                     <div className="col-span-full py-12 text-center flex flex-col items-center justify-center bg-slate-50 rounded-2xl border border-slate-200 border-dashed">
                         <MapPin className="w-12 h-12 text-slate-300 mb-3" />
                         <h3 className="text-lg font-semibold text-slate-700 mb-1">No places found</h3>
-                        <p className="text-slate-500 mb-4 text-sm">You haven't added any {filter === 'spots' ? 'attractions' : filter === 'food' ? 'food spots' : 'places'} yet.</p>
+                        <p className="text-slate-500 mb-4 text-sm">You haven't added any {filter === 'spot' ? 'attractions' : filter === 'food' ? 'food spots' : 'places'} yet.</p>
                         <button onClick={openAddModal} className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors shadow-sm cursor-pointer">
                             <Plus size={16} /> Add a Place
                         </button>

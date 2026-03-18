@@ -1,6 +1,6 @@
 'use client';
 
-import { MapPin, Clock, GripVertical, CheckCircle2, ChevronDown, Map as MapIcon, Calendar, Trophy, Image as ImageIcon, MapPinned, Tent, Loader2, Info, Plus, Search, Trash2, Edit2, X, AlertCircle, Link as LinkIcon, Check, List } from 'lucide-react';
+import { MapPin, Clock, GripVertical, CheckCircle2, ChevronDown, Map as MapIcon, Calendar, Trophy, Image as ImageIcon, MapPinned, Tent, Loader2, Info, Plus, Search, Trash2, Edit2, X, AlertCircle, Link as LinkIcon, Check, List, Table2 } from 'lucide-react';
 import { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -67,7 +67,8 @@ export default function ItineraryTimeline({
 }) {
     // Core State
     const [items, setItems] = useState<ItineraryItem[]>(initialItems);
-    const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
+    const [viewMode, setViewMode] = useState<'list' | 'calendar' | 'table'>('list');
+    const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
 
     // Day grouping
     const uniqueDays = useMemo(() => Array.from(new Set(items.map(i => i.day))), [items]);
@@ -390,6 +391,8 @@ export default function ItineraryTimeline({
     const renderItemCard = (item: ItineraryItem) => {
         const isVisited = visitedItemIds.has(item.id);
         const isUnlocked = new Date() >= item.actualDate;
+        const isExpanded = expandedItemId === item.id;
+        const theme = getDestinationTheme(item.destination);
 
         return (
             <motion.div
@@ -408,123 +411,285 @@ export default function ItineraryTimeline({
                     )}
                 </div>
 
-                <div className={`bg-white border rounded-2xl p-5 hover:shadow-md transition-all ${isVisited ? 'border-emerald-200 bg-emerald-50/20' : 'border-slate-200 hover:border-blue-200'}`}>
-                    <div className="flex justify-between items-start mb-3">
-                        <div className="flex flex-col gap-1 w-[60%]">
-                            <div className="flex items-center gap-2 flex-wrap">
-                                <h4 className={`font-bold text-lg leading-tight ${isVisited ? 'text-emerald-800 line-through opacity-70' : 'text-slate-800'}`}>
-                                    {item.activity}
-                                </h4>
-                                {/* Mini Edit/Delete Buttons, hidden until hover */}
-                                <div className="flex opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity gap-1 ml-2">
-                                    <button onClick={() => handleEditClick(item)} className="p-1 rounded bg-slate-100 text-slate-500 hover:text-blue-600 hover:bg-blue-50">
-                                        <Edit2 className="w-3.5 h-3.5" />
-                                    </button>
-                                    <button onClick={() => handleDeleteClick(item.id)} className="p-1 rounded bg-slate-100 text-slate-500 hover:text-rose-600 hover:bg-rose-50">
-                                        <Trash2 className="w-3.5 h-3.5" />
-                                    </button>
+                <div
+                    className={`bg-white border rounded-2xl overflow-hidden hover:shadow-md transition-all cursor-pointer ${isVisited ? 'border-emerald-200 bg-emerald-50/20' : 'border-slate-200 hover:border-blue-200'} ${isExpanded ? 'shadow-lg ring-2 ring-blue-100' : ''}`}
+                    onClick={() => setExpandedItemId(isExpanded ? null : item.id)}
+                >
+                    <div className="p-5">
+                        <div className="flex justify-between items-start mb-3">
+                            <div className="flex flex-col gap-1 w-[60%]">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <h4 className={`font-bold text-lg leading-tight ${isVisited ? 'text-emerald-800 line-through opacity-70' : 'text-slate-800'}`}>
+                                        {item.activity}
+                                    </h4>
+                                    {/* Mini Edit/Delete Buttons */}
+                                    <div className="flex opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity gap-1 ml-2">
+                                        <button onClick={(e) => { e.stopPropagation(); handleEditClick(item); }} className="p-1 rounded bg-slate-100 text-slate-500 hover:text-blue-600 hover:bg-blue-50 cursor-pointer">
+                                            <Edit2 className="w-3.5 h-3.5" />
+                                        </button>
+                                        <button onClick={(e) => { e.stopPropagation(); handleDeleteClick(item.id); }} className="p-1 rounded bg-slate-100 text-slate-500 hover:text-rose-600 hover:bg-rose-50 cursor-pointer">
+                                            <Trash2 className="w-3.5 h-3.5" />
+                                        </button>
+                                    </div>
+                                </div>
+                                <span className={`inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full w-fit ${theme.bg} ${theme.text} ${theme.border} border`}>
+                                    {theme.emoji} {theme.label}
+                                </span>
+                                <div className="flex items-center text-sm text-slate-600">
+                                    <MapPin className="w-3.5 h-3.5 mr-1.5 text-rose-500 shrink-0" />
+                                    <span className="truncate">{item.location}</span>
                                 </div>
                             </div>
-                            {/* Destination Badge */}
-                            {(() => {
-                                const theme = getDestinationTheme(item.destination);
-                                return (
-                                    <span className={`inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full w-fit ${theme.bg} ${theme.text} ${theme.border} border`}>
-                                        {theme.emoji} {theme.label}
-                                    </span>
-                                );
-                            })()}
-                            <div className="flex items-center text-sm text-slate-600">
-                                <MapPin className="w-3.5 h-3.5 mr-1.5 text-rose-500 shrink-0" />
-                                <span className="truncate">{item.location}</span>
+
+                            <div className="flex flex-col items-end gap-1.5 shrink-0">
+                                <span className={`flex items-center text-xs font-semibold px-2.5 py-1 rounded-md border shadow-sm ${isVisited ? 'text-emerald-700 bg-emerald-50 border-emerald-100' : 'text-blue-700 bg-blue-50 border-blue-100'}`}>
+                                    <Clock className="w-3.5 h-3.5 mr-1.5" />
+                                    {item.time}
+                                </span>
+                                <span className="flex items-center text-[11px] font-medium text-slate-400">
+                                    {item.duration} min
+                                </span>
+                                <span className="text-[10px] font-semibold text-slate-400 bg-slate-50 px-2 py-0.5 rounded-md border border-slate-100">
+                                    {item.actualDate instanceof Date && !isNaN(item.actualDate.getTime())
+                                        ? item.actualDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', weekday: 'short' })
+                                        : item.day.replace(/Day \d+\s*/, '').replace(/[()]/g, '').trim() || item.day
+                                    }
+                                </span>
+                                {/* Expand indicator */}
+                                <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
                             </div>
                         </div>
 
-                        <div className="flex flex-col items-end gap-1.5 shrink-0">
-                            <span className={`flex items-center text-xs font-semibold px-2.5 py-1 rounded-md border shadow-sm ${isVisited ? 'text-emerald-700 bg-emerald-50 border-emerald-100' : 'text-blue-700 bg-blue-50 border-blue-100'}`}>
-                                <Clock className="w-3.5 h-3.5 mr-1.5" />
-                                {item.time}
-                            </span>
-                            <span className="flex items-center text-[11px] font-medium text-slate-400">
-                                {item.duration} min
-                            </span>
-                            <span className="text-[10px] font-semibold text-slate-400 bg-slate-50 px-2 py-0.5 rounded-md border border-slate-100">
-                                {item.actualDate instanceof Date && !isNaN(item.actualDate.getTime())
-                                    ? item.actualDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', weekday: 'short' })
-                                    : item.day.replace(/Day \d+\s*/, '').replace(/[()]/g, '').trim() || item.day
-                                }
-                            </span>
-                        </div>
-                    </div>
-
-                    <div className="flex items-center justify-between mt-4">
-                        <div className="flex items-center gap-2">
-                            <button
-                                onClick={() => toggleVisited(item)}
-                                className={`flex items-center px-3 py-1.5 rounded-full text-xs font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${isVisited
-                                    ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
-                                    : isUnlocked
-                                        ? 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                                        : 'bg-slate-50 text-slate-400'
-                                    }`}
-                                title={!isUnlocked ? "You can't check in yet!" : "Mark as visited"}
-                            >
-                                <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />
-                                {isVisited ? 'Visited' : 'Check In'}
-                            </button>
-
-                            <button
-                                onClick={() => onShowMap(item)}
-                                className="flex items-center px-3 py-1.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors"
-                            >
-                                <MapIcon className="w-3.5 h-3.5 mr-1.5" />
-                                Show Route
-                            </button>
-                        </div>
-
-                        {(item.costForTwo || item.cost) > 0 && (
-                            <div className="relative flex items-center gap-0.5 text-xs font-semibold text-emerald-700">
-                                ₱{item.costForTwo || item.cost}
+                        <div className="flex items-center justify-between mt-4">
+                            <div className="flex items-center gap-2">
                                 <button
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        setActiveTooltip(activeTooltip === item.id ? null : item.id);
-                                    }}
-                                    className="p-1 rounded-full hover:bg-emerald-100 transition-colors cursor-pointer"
+                                    onClick={(e) => { e.stopPropagation(); toggleVisited(item); }}
+                                    className={`flex items-center px-3 py-1.5 rounded-full text-xs font-semibold transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${isVisited
+                                        ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
+                                        : isUnlocked
+                                            ? 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                                            : 'bg-slate-50 text-slate-400'
+                                        }`}
+                                    title={!isUnlocked ? "You can't check in yet!" : "Mark as visited"}
                                 >
-                                    <Info className="w-3.5 h-3.5 text-emerald-500/80" />
+                                    <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />
+                                    {isVisited ? 'Visited' : 'Check In'}
                                 </button>
 
-                                <AnimatePresence>
-                                    {activeTooltip === item.id && (
-                                        <motion.div
-                                            initial={{ opacity: 0, y: 5 }}
-                                            animate={{ opacity: 1, y: 0 }}
-                                            exit={{ opacity: 0, y: 5 }}
-                                            className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2.5 bg-slate-800 text-white text-[10px] rounded-lg shadow-xl z-50 font-normal leading-relaxed text-center"
-                                        >
-                                            This is an estimate based on online data. Actual prices may change.
-                                            <div className="absolute top-full left-1/2 -translate-x-1/2 border-[5px] border-transparent border-t-slate-800" />
-                                        </motion.div>
-                                    )}
-                                </AnimatePresence>
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); onShowMap(item); }}
+                                    className="flex items-center px-3 py-1.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors cursor-pointer"
+                                >
+                                    <MapIcon className="w-3.5 h-3.5 mr-1.5" />
+                                    Show Route
+                                </button>
                             </div>
-                        )}
+
+                            {(item.costForTwo || item.cost) > 0 && (
+                                <div className="relative flex items-center gap-0.5 text-xs font-semibold text-emerald-700">
+                                    ₱{item.costForTwo || item.cost}
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setActiveTooltip(activeTooltip === item.id ? null : item.id);
+                                        }}
+                                        className="p-1 rounded-full hover:bg-emerald-100 transition-colors cursor-pointer"
+                                    >
+                                        <Info className="w-3.5 h-3.5 text-emerald-500/80" />
+                                    </button>
+
+                                    <AnimatePresence>
+                                        {activeTooltip === item.id && (
+                                            <motion.div
+                                                initial={{ opacity: 0, y: 5 }}
+                                                animate={{ opacity: 1, y: 0 }}
+                                                exit={{ opacity: 0, y: 5 }}
+                                                className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2.5 bg-slate-800 text-white text-[10px] rounded-lg shadow-xl z-50 font-normal leading-relaxed text-center"
+                                            >
+                                                This is an estimate based on online data. Actual prices may change.
+                                                <div className="absolute top-full left-1/2 -translate-x-1/2 border-[5px] border-transparent border-t-slate-800" />
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
+                                </div>
+                            )}
+                        </div>
                     </div>
 
-                    {item.notes && (
-                        <p className="mt-4 text-xs italic text-slate-500 bg-slate-50 p-3 rounded-xl border border-slate-100 leading-relaxed">
-                            "{item.notes}"
-                        </p>
-                    )}
-                    {item.link && item.link !== '-' && (
-                        <a href={item.link} target="_blank" rel="noopener noreferrer" className="mt-3 inline-flex items-center text-xs text-blue-600 hover:text-blue-800 font-semibold bg-blue-50/50 hover:bg-blue-100 px-3 py-1.5 rounded-lg transition-colors border border-blue-100">
-                            <LinkIcon className="w-3.5 h-3.5 mr-1.5" />
-                            View Details
-                        </a>
-                    )}
+                    {/* Expandable Detail Panel */}
+                    <AnimatePresence>
+                        {isExpanded && (
+                            <motion.div
+                                initial={{ height: 0, opacity: 0 }}
+                                animate={{ height: 'auto', opacity: 1 }}
+                                exit={{ height: 0, opacity: 0 }}
+                                transition={{ duration: 0.25, ease: 'easeInOut' }}
+                                className="overflow-hidden"
+                                onClick={(e) => e.stopPropagation()}
+                            >
+                                <div className="px-5 pb-5 pt-3 border-t border-slate-100 bg-slate-50/50">
+                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+                                        <div className="bg-white rounded-xl p-3 border border-slate-100">
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Cost/Person</p>
+                                            <p className="text-sm font-bold text-slate-800">₱{item.cost || 0}</p>
+                                        </div>
+                                        <div className="bg-white rounded-xl p-3 border border-slate-100">
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Cost for Two</p>
+                                            <p className="text-sm font-bold text-emerald-700">₱{item.costForTwo || (item.cost || 0) * 2}</p>
+                                        </div>
+                                        <div className="bg-white rounded-xl p-3 border border-slate-100">
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Duration</p>
+                                            <p className="text-sm font-bold text-slate-800">{item.duration >= 60 ? `${Math.floor(item.duration / 60)}h ${item.duration % 60 > 0 ? `${item.duration % 60}m` : ''}` : `${item.duration}m`}</p>
+                                        </div>
+                                        <div className="bg-white rounded-xl p-3 border border-slate-100">
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Destination</p>
+                                            <p className={`text-sm font-bold ${theme.text}`}>{theme.label}</p>
+                                        </div>
+                                    </div>
+
+                                    {item.notes && (
+                                        <div className="mb-3">
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase mb-1.5">Notes</p>
+                                            <p className="text-xs text-slate-600 bg-white p-3 rounded-xl border border-slate-100 leading-relaxed italic">
+                                                "{item.notes}"
+                                            </p>
+                                        </div>
+                                    )}
+
+                                    {item.link && item.link !== '-' && (
+                                        <a href={item.link} target="_blank" rel="noopener noreferrer" className="inline-flex items-center text-xs text-blue-600 hover:text-blue-800 font-semibold bg-white hover:bg-blue-50 px-3 py-2 rounded-xl transition-colors border border-blue-100 mb-3">
+                                            <LinkIcon className="w-3.5 h-3.5 mr-1.5" />
+                                            Open External Link
+                                        </a>
+                                    )}
+
+                                    {/* Mini Map */}
+                                    {(item.coordinates || (item.lng && item.lat)) && process.env.NEXT_PUBLIC_MAPBOX_TOKEN && (
+                                        <div className="w-full h-32 rounded-xl overflow-hidden border border-slate-200 shadow-inner mt-2">
+                                            <Map
+                                                mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN}
+                                                longitude={item.coordinates?.[0] || item.lng || 120.5960}
+                                                latitude={item.coordinates?.[1] || item.lat || 16.4023}
+                                                zoom={14}
+                                                interactive={false}
+                                                mapStyle="mapbox://styles/mapbox/outdoors-v12"
+                                                style={{ width: '100%', height: '100%' }}
+                                            >
+                                                <Marker
+                                                    longitude={item.coordinates?.[0] || item.lng || 120.5960}
+                                                    latitude={item.coordinates?.[1] || item.lat || 16.4023}
+                                                    anchor="bottom"
+                                                >
+                                                    <MapPin className="w-6 h-6 text-rose-500 fill-rose-500/20 drop-shadow-md" />
+                                                </Marker>
+                                            </Map>
+                                        </div>
+                                    )}
+                                </div>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
                 </div>
             </motion.div>
+        );
+    };
+
+    // --- Tabular/Spreadsheet View ---
+    const renderTableView = () => {
+        const totalCost = items.reduce((sum, i) => sum + (i.costForTwo || (i.cost || 0) * 2), 0);
+        const totalDuration = items.reduce((sum, i) => sum + (i.duration || 0), 0);
+
+        return (
+            <div className="overflow-x-auto rounded-2xl border border-slate-200 shadow-sm bg-white">
+                <table className="w-full text-sm border-collapse min-w-[700px]">
+                    <thead>
+                        <tr className="bg-slate-800 text-white text-xs uppercase tracking-wider">
+                            <th className="px-4 py-3 text-left font-bold sticky left-0 bg-slate-800 z-10">Day</th>
+                            <th className="px-4 py-3 text-left font-bold">Time</th>
+                            <th className="px-4 py-3 text-left font-bold">Activity</th>
+                            <th className="px-4 py-3 text-left font-bold">Location</th>
+                            <th className="px-3 py-3 text-center font-bold">Duration</th>
+                            <th className="px-3 py-3 text-right font-bold">Cost (₱)</th>
+                            <th className="px-3 py-3 text-center font-bold">Status</th>
+                            <th className="px-3 py-3 text-center font-bold">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {items.map((item, idx) => {
+                            const theme = getDestinationTheme(item.destination);
+                            const isVisited = visitedItemIds.has(item.id);
+                            // Alternate rows within groups for zebra effect
+                            const rowBg = {
+                                'Baguio': idx % 2 === 0 ? 'bg-blue-50/60' : 'bg-blue-50/30',
+                                'Elyu': idx % 2 === 0 ? 'bg-amber-50/60' : 'bg-amber-50/30',
+                                'En Route': idx % 2 === 0 ? 'bg-slate-50/80' : 'bg-slate-50/40',
+                                'Home': idx % 2 === 0 ? 'bg-emerald-50/60' : 'bg-emerald-50/30',
+                            }[theme.label] || (idx % 2 === 0 ? 'bg-slate-50/50' : 'bg-white');
+
+                            return (
+                                <tr key={item.id} className={`${rowBg} hover:bg-blue-100/40 transition-colors border-b border-slate-100 last:border-0`}>
+                                    <td className={`px-4 py-3 font-bold text-xs sticky left-0 z-10 ${rowBg}`}>
+                                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${theme.bg} ${theme.text} border ${theme.border}`}>
+                                            {theme.emoji} {item.day.replace(/\(.*?\)/, '').trim()}
+                                        </span>
+                                    </td>
+                                    <td className="px-4 py-3 font-semibold text-slate-700 whitespace-nowrap">
+                                        <span className="flex items-center gap-1">
+                                            <Clock className="w-3 h-3 text-blue-500" />
+                                            {item.time}
+                                        </span>
+                                    </td>
+                                    <td className="px-4 py-3 font-semibold text-slate-800 max-w-[180px]">
+                                        <span className={`${isVisited ? 'line-through opacity-60' : ''}`}>{item.activity}</span>
+                                    </td>
+                                    <td className="px-4 py-3 text-slate-600 max-w-[160px]">
+                                        <span className="flex items-center gap-1 truncate">
+                                            <MapPin className="w-3 h-3 text-rose-400 shrink-0" />
+                                            <span className="truncate">{item.location}</span>
+                                        </span>
+                                    </td>
+                                    <td className="px-3 py-3 text-center text-slate-600 font-medium whitespace-nowrap">
+                                        {item.duration >= 60 ? `${Math.floor(item.duration / 60)}h${item.duration % 60 > 0 ? ` ${item.duration % 60}m` : ''}` : `${item.duration}m`}
+                                    </td>
+                                    <td className="px-3 py-3 text-right font-bold text-emerald-700 whitespace-nowrap">
+                                        {(item.costForTwo || item.cost) > 0 ? `₱${(item.costForTwo || (item.cost || 0) * 2).toLocaleString()}` : '—'}
+                                    </td>
+                                    <td className="px-3 py-3 text-center">
+                                        {isVisited ? (
+                                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-1 rounded-full">
+                                                <Check className="w-3 h-3" /> Done
+                                            </span>
+                                        ) : (
+                                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded-full">
+                                                Pending
+                                            </span>
+                                        )}
+                                    </td>
+                                    <td className="px-3 py-3 text-center">
+                                        <div className="flex items-center justify-center gap-1">
+                                            <button onClick={() => handleEditClick(item)} className="p-1.5 rounded-lg bg-slate-100 text-slate-500 hover:text-blue-600 hover:bg-blue-50 transition-colors cursor-pointer" aria-label="Edit">
+                                                <Edit2 className="w-3.5 h-3.5" />
+                                            </button>
+                                            <button onClick={() => handleDeleteClick(item.id)} className="p-1.5 rounded-lg bg-slate-100 text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer" aria-label="Delete">
+                                                <Trash2 className="w-3.5 h-3.5" />
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            );
+                        })}
+                    </tbody>
+                    <tfoot>
+                        <tr className="bg-slate-800 text-white font-bold text-xs uppercase">
+                            <td className="px-4 py-3 sticky left-0 bg-slate-800 z-10" colSpan={4}>Totals ({items.length} activities)</td>
+                            <td className="px-3 py-3 text-center">{Math.floor(totalDuration / 60)}h {totalDuration % 60}m</td>
+                            <td className="px-3 py-3 text-right">₱{totalCost.toLocaleString()}</td>
+                            <td className="px-3 py-3 text-center">{visitedItemIds.size}/{items.length}</td>
+                            <td></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
         );
     };
 
@@ -543,18 +708,27 @@ export default function ItineraryTimeline({
                         <button onClick={handleAddClick} className="flex items-center gap-1 bg-black text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-slate-800 transition-colors shadow-sm">
                             <Plus className="w-3.5 h-3.5" /> Add
                         </button>
-                        <div className="flex gap-2 bg-slate-100 p-1 rounded-lg ml-2">
+                        <div className="flex gap-1.5 bg-slate-100 p-1 rounded-lg ml-2">
                             <button
                                 onClick={() => setViewMode('list')}
-                                className={`p-1.5 rounded-md transition-all ${viewMode === 'list' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500 hover:text-slate-700'}`}
+                                className={`p-1.5 rounded-md transition-all cursor-pointer ${viewMode === 'list' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500 hover:text-slate-700'}`}
+                                aria-label="List view"
                             >
                                 <List className="w-4 h-4" />
                             </button>
                             <button
                                 onClick={() => setViewMode('calendar')}
-                                className={`p-1.5 rounded-md transition-all ${viewMode === 'calendar' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500 hover:text-slate-700'}`}
+                                className={`p-1.5 rounded-md transition-all cursor-pointer ${viewMode === 'calendar' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500 hover:text-slate-700'}`}
+                                aria-label="Calendar view"
                             >
                                 <Calendar className="w-4 h-4" />
+                            </button>
+                            <button
+                                onClick={() => setViewMode('table')}
+                                className={`p-1.5 rounded-md transition-all cursor-pointer ${viewMode === 'table' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500 hover:text-slate-700'}`}
+                                aria-label="Table view"
+                            >
+                                <Table2 className="w-4 h-4" />
                             </button>
                         </div>
                     </div>
@@ -620,13 +794,14 @@ export default function ItineraryTimeline({
                 )}
             </AnimatePresence>
 
-            <div className="flex-1 overflow-y-auto p-6 pb-32 relative">
-                <div className="absolute left-10 top-0 bottom-0 w-0.5 bg-slate-100" />
+            <div className={`flex-1 overflow-y-auto pb-32 relative ${viewMode === 'table' ? 'p-4' : 'p-6'}`}>
+                {viewMode !== 'table' && <div className="absolute left-10 top-0 bottom-0 w-0.5 bg-slate-100" />}
                 {items.length === 0 && <div className="text-center text-slate-400 mt-10 text-sm">No items yet. Add one!</div>}
 
-                {viewMode === 'list' ? (
+                {viewMode === 'table' ? (
+                    renderTableView()
+                ) : viewMode === 'list' ? (
                     Object.entries(listGroups).map(([day, dayItems]) => {
-                        // Determine dominant destination for this day's header
                         const dominantDest = dayItems[0]?.destination || 'Baguio';
                         const headerTheme = getDestinationTheme(dominantDest);
                         return (
